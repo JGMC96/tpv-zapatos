@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuración - TPV Zapatos</title>
+  <!-- Correcto -->
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    .config-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .config-seccion {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .config-seccion h2 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #34495e;
+    }
+    
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .btn-guardar {
+      background-color: #2ecc71;
+      color: white;
+    }
+    
+    .btn-guardar:hover {
+      background-color: #27ae60;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      margin-right: 5px;
+    }
+    
+    .tab.activo {
+      background: #fff;
+      border-color: #ddd;
+      border-bottom-color: #fff;
+      margin-bottom: -1px;
+      font-weight: 500;
+    }
+    
+    .tab-contenido {
+      display: none;
+    }
+    
+    .tab-contenido.activo {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Configuración</h1>
+    
+    <div class="config-container">
+      <div class="tabs">
+        <div class="tab activo" data-tab="general">General</div>
+        <div class="tab" data-tab="empresa">Empresa</div>
+        <div class="tab" data-tab="impresora">Impresora</div>
+        <div class="tab" data-tab="seguridad">Seguridad</div>
+        <div class="tab" data-tab="backup">Respaldo</div>
+      </div>
+      
+      <form id="form-config">
+        <!-- Pestaña General -->
+        <div id="general" class="tab-contenido activo">
+          <div class="config-seccion">
+            <h2>Apariencia</h2>
+            
+            <div class="form-group">
+              <label for="tema">Tema:</label>
+              <select id="tema" class="form-control">
+                <option value="claro">Claro</option>
+                <option value="oscuro">Oscuro</option>
+                <option value="sistema">Usar configuración del sistema</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="tamano-fuente">Tamaño de fuente:</label>
+              <select id="tamano-fuente" class="form-control">
+                <option value="pequeno">Pequeño</option>
+                <option value="mediano" selected>Mediano</option>
+                <option value="grande">Grande</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="config-seccion">
+            <h2>Notificaciones</h2>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="notificaciones-activas" checked>
+                Activar notificaciones
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label for="sonido-notificacion">Sonido de notificación:</label>
+              <select id="sonido-notificacion" class="form-control">
+                <option value="predeterminado">Predeterminado</option>
+                <option value="clasico">Clásico</option>
+                <option value="moderno">Moderno</option>
+                <option value="ninguno">Ninguno</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Pestaña Empresa -->
+        <div id="empresa" class="tab-contenido">
+          <div class="config-seccion">
+            <h2>Información de la Empresa</h2>
+            
+            <div class="form-group">
+              <label for="nombre-empresa">Nombre de la Empresa:</label>
+              <input type="text" id="nombre-empresa" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="direccion">Dirección:</label>
+              <input type="text" id="direccion" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="telefono">Teléfono:</label>
+              <input type="tel" id="telefono" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="email">Correo Electrónico:</label>
+              <input type="email" id="email" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="cif">CIF/NIF:</label>
+              <input type="text" id="cif" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="logo">Logo de la Empresa:</label>
+              <input type="file" id="logo" class="form-control" accept="image/*">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Pestaña Impresora -->
+        <div id="impresora" class="tab-contenido">
+          <div class="config-seccion">
+            <h2>Configuración de Impresión</h2>
+            
+            <div class="form-group">
+              <label for="impresora-predeterminada">Impresora Predeterminada:</label>
+              <select id="impresora-predeterminada" class="form-control">
+                <option value="">Seleccionar impresora...</option>
+                <!-- Las impresoras se cargarán dinámicamente -->
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="tipo-papel">Tipo de Papel:</label>
+              <select id="tipo-papel" class="form-control">
+                <option value="80mm">80mm (Tickets)</option>
+                <option value="a4">A4</option>
+                <option value="a5">A5</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="imprimir-copia" checked>
+                Imprimir copia para el cliente
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="imprimir-logo" checked>
+                Incluir logo en los tickets
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="imprimir-pie">
+                Incluir pie de página personalizado
+              </label>
+              <textarea id="texto-pie" class="form-control" rows="3" placeholder="Texto del pie de página..."></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Pestaña Seguridad -->
+        <div id="seguridad" class="tab-contenido">
+          <div class="config-seccion">
+            <h2>Seguridad y Acceso</h2>
+            
+            <div class="form-group">
+              <label for="tiempo-sesion">Tiempo de sesión inactiva (minutos):</label>
+              <input type="number" id="tiempo-sesion" class="form-control" min="1" max="240" value="30">
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="solicitar-contrasena" checked>
+                Solicitar contraseña al iniciar la aplicación
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="bloquear-ventas" checked>
+                Bloquear ventas sin stock disponible
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="registrar-eventos" checked>
+                Registrar eventos del sistema
+              </label>
+            </div>
+            
+            <h3>Cambiar Contraseña</h3>
+            <div class="form-group">
+              <label for="contrasena-actual">Contraseña Actual:</label>
+              <input type="password" id="contrasena-actual" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="nueva-contrasena">Nueva Contraseña:</label>
+              <input type="password" id="nueva-contrasena" class="form-control">
+            </div>
+            
+            <div class="form-group">
+              <label for="confirmar-contrasena">Confirmar Nueva Contraseña:</label>
+              <input type="password" id="confirmar-contrasena" class="form-control">
+            </div>
+            
+            <button type="button" id="btn-cambiar-contrasena" class="btn btn-primary">
+              Cambiar Contraseña
+            </button>
+          </div>
+        </div>
+        
+        <!-- Pestaña Respaldo -->
+        <div id="backup" class="tab-contenido">
+          <div class="config-seccion">
+            <h2>Respaldo de Datos</h2>
+            
+            <div class="form-group">
+              <label>Ruta de Respaldo:</label>
+              <div style="display: flex; gap: 10px;">
+                <input type="text" id="ruta-respaldo" class="form-control" readonly>
+                <button type="button" id="btn-seleccionar-ruta" class="btn btn-secondary">
+                  Seleccionar...
+                </button>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="frecuencia-respaldo">Frecuencia de Respaldo Automático:</label>
+              <select id="frecuencia-respaldo" class="form-control">
+                <option value="diario">Diario</option>
+                <option value="semanal" selected>Semanal</option>
+                <option value="mensual">Mensual</option>
+                <option value="desactivado">Desactivado</option>
+              </select>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" id="btn-crear-respaldo" class="btn btn-primary">
+                Crear Respaldo Ahora
+              </button>
+              <button type="button" id="btn-restaurar-respaldo" class="btn btn-secondary">
+                Restaurar desde Respaldo...
+              </button>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+              <h4>Último Respaldo:</h4>
+              <p id="ultimo-respaldo">Nunca</p>
+              <p id="tamano-respaldo">-</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" id="btn-cancelar" class="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+    
+    <button id="btn-volver" class="btn btn-secondary" style="margin-top: 20px;">
+      ← Volver al Menú Principal
+    </button>
+  </div>
+
+  <script>
+    // Script para manejar las pestañas
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- CARGAR CONFIGURACIÓN ---
+      (async function cargarConfiguracion() {
+        let config;
+        try {
+          config = await (window.electronAPI ? window.electronAPI.invoke('obtener-config') : window.ipcRenderer.invoke('obtener-config'));
+        } catch (e) {
+          config = {};
+        }
+        // Apariencia
+        if (config.tema) document.getElementById('tema').value = config.tema;
+        if (config.tamanoFuente) document.getElementById('tamano-fuente').value = config.tamanoFuente;
+        // Notificaciones
+        if (typeof config.notificacionesActivas !== 'undefined') document.getElementById('notificaciones-activas').checked = !!config.notificacionesActivas;
+        if (config.sonidoNotificacion) document.getElementById('sonido-notificacion').value = config.sonidoNotificacion;
+        // Empresa
+        if (config.nombreEmpresa) document.getElementById('nombre-empresa').value = config.nombreEmpresa;
+        if (config.direccion) document.getElementById('direccion').value = config.direccion;
+        if (config.telefono) document.getElementById('telefono').value = config.telefono;
+        if (config.email) document.getElementById('email').value = config.email;
+        if (config.cif) document.getElementById('cif').value = config.cif;
+        // Impresora
+        if (config.impresoraPredeterminada) document.getElementById('impresora-predeterminada').value = config.impresoraPredeterminada;
+        if (config.tipoPapel) document.getElementById('tipo-papel').value = config.tipoPapel;
+        if (typeof config.imprimirCopia !== 'undefined') document.getElementById('imprimir-copia').checked = !!config.imprimirCopia;
+        if (typeof config.imprimirLogo !== 'undefined') document.getElementById('imprimir-logo').checked = !!config.imprimirLogo;
+        if (typeof config.imprimirPie !== 'undefined') document.getElementById('imprimir-pie').checked = !!config.imprimirPie;
+        if (config.textoPie) document.getElementById('texto-pie').value = config.textoPie;
+        // Seguridad
+        if (config.tiempoSesion) document.getElementById('tiempo-sesion').value = config.tiempoSesion;
+        if (typeof config.solicitarContrasena !== 'undefined') document.getElementById('solicitar-contrasena').checked = !!config.solicitarContrasena;
+        if (typeof config.bloquearVentas !== 'undefined') document.getElementById('bloquear-ventas').checked = !!config.bloquearVentas;
+        if (typeof config.registrarEventos !== 'undefined') document.getElementById('registrar-eventos').checked = !!config.registrarEventos;
+        // Respaldo
+        if (config.rutaRespaldo) document.getElementById('ruta-respaldo').value = config.rutaRespaldo;
+      })();
+
+      // --- GUARDAR CONFIGURACIÓN AUTOMÁTICAMENTE ---
+      async function guardarConfigAuto() {
+        const config = {
+          tema: document.getElementById('tema').value,
+          tamanoFuente: document.getElementById('tamano-fuente').value,
+          notificacionesActivas: document.getElementById('notificaciones-activas').checked,
+          sonidoNotificacion: document.getElementById('sonido-notificacion').value,
+          nombreEmpresa: document.getElementById('nombre-empresa').value,
+          direccion: document.getElementById('direccion').value,
+          telefono: document.getElementById('telefono').value,
+          email: document.getElementById('email').value,
+          cif: document.getElementById('cif').value,
+          impresoraPredeterminada: document.getElementById('impresora-predeterminada').value,
+          tipoPapel: document.getElementById('tipo-papel').value,
+          imprimirCopia: document.getElementById('imprimir-copia').checked,
+          imprimirLogo: document.getElementById('imprimir-logo').checked,
+          imprimirPie: document.getElementById('imprimir-pie').checked,
+          textoPie: document.getElementById('texto-pie').value,
+          tiempoSesion: document.getElementById('tiempo-sesion').value,
+          solicitarContrasena: document.getElementById('solicitar-contrasena').checked,
+          bloquearVentas: document.getElementById('bloquear-ventas').checked,
+          registrarEventos: document.getElementById('registrar-eventos').checked,
+          rutaRespaldo: document.getElementById('ruta-respaldo').value
+        };
+        try {
+          await (window.electronAPI ? window.electronAPI.invoke('guardar-config', config) : window.ipcRenderer.invoke('guardar-config', config));
+        } catch (e) {
+          // No alert para evitar molestias en guardado automático
+        }
+      }
+      // Guardar automáticamente al cambiar cualquier campo
+      document.querySelectorAll('#form-config input, #form-config select, #form-config textarea').forEach(el => {
+        el.addEventListener('change', guardarConfigAuto);
+        el.addEventListener('input', guardarConfigAuto);
+      });
+      // Eliminar el submit manual (ya no es necesario)
+      document.getElementById('form-config').addEventListener('submit', e => e.preventDefault());
+    
+      // Navegación entre pestañas
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Remover clase activa de todas las pestañas y contenidos
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('activo'));
+          document.querySelectorAll('.tab-contenido').forEach(c => c.classList.remove('activo'));
+          
+          // Activar pestaña y contenido seleccionados
+          tab.classList.add('activo');
+          const tabId = tab.getAttribute('data-tab');
+          document.getElementById(tabId).classList.add('activo');
+        });
+      });
+      
+      // Volver al menú principal
+      document.getElementById('btn-volver').addEventListener('click', () => {
+        window.history.back();
+      });
+      
+      // Cancelar cambios
+      document.getElementById('btn-cancelar').addEventListener('click', () => {
+        if (confirm('¿Desea descartar los cambios realizados?')) {
+          window.history.back();
+        }
+      });
+      
+      // Aquí iría el código para cargar y guardar la configuración
+      // usando ipcRenderer para interactuar con el sistema de archivos
+    });
+  </script>
+  <!-- Puente para acceder a las APIs de Electron -->
+  <script src="./js/electron-bridge.js"></script>
+  <!-- Scripts del sistema de eventos centralizado -->
+  <script src="./js/event-handler.js"></script>
+  <script src="./js/navigation.js"></script>
+  <script src="./js/app-initializer.js"></script>
+  <!-- Script específico para la página de configuración -->
+  <script src="./js/configuracion-handler.js"></script>
+  <script src="./menu.js"></script>
+</body>
+</html>
