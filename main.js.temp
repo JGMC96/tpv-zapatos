@@ -1,0 +1,656 @@
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('ventas.db');
+
+// --- CONFIGURACIÓN ---
+const configPath = path.join(__dirname, 'config.json');
+
+function getConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8');
+      return JSON.parse(data);
+    } else {
+      // Configuración por defecto
+      return {
+        moneda: 'EUR',
+        tasaIVA: 21
+      };
+    }
+  } catch (e) {
+    console.error('Error al leer config.json:', e);
+    return { moneda: 'EUR', tasaIVA: 21 };
+  }
+}
+
+function saveConfig(config) {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    return true;
+  } catch (e) {
+    console.error('Error al guardar config.json:', e);
+    return false;
+  }
+}
+
+ipcMain.handle('obtener-config', async () => {
+  return getConfig();
+});
+ipcMain.handle('guardar-config', async (event, config) => {
+  return saveConfig(config);
+});
+
+
+// Configuración de la aplicación
+app.name = 'TPV Zapatos';
+app.allowRendererProcessReuse = true;
+
+// Crear tablas si no existen
+function initializeDatabase() {
+  db.serialize(() => {
+    // Primero eliminamos las tablas si existen para evitar problemas de estructura
+    db.run('DROP TABLE IF EXISTS venta_detalles');
+    db.run('DROP TABLE IF EXISTS ventas');
+    db.run('DROP TABLE IF EXISTS productos');
+    
+    console.log('Tablas eliminadas, creando estructura nueva...');
+    
+    // Tabla de productos
+    // Crear tabla de categorías
+    db.run(`CREATE TABLE IF NOT EXISTS categorias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL UNIQUE,
+      descripcion TEXT,
+      fecha_creacion TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Insertar categorías por defecto si no existen
+    db.get('SELECT COUNT(*) as count FROM categorias', [], (err, result) => {
+      if (err) return console.error('Error al verificar categorías:', err);
+      
+      if (result.count === 0) {
+        const categoriasDefault = [
+          'Deportivas', 'Casuales', 'Formales', 'Sandalias', 'Botas', 'Tacones', 'Zapatillas', 'Mocasines'
+        ];
+        
+        const stmt = db.prepare('INSERT INTO categorias (nombre) VALUES (?)');
+        categoriasDefault.forEach(categoria => {
+          stmt.run(categoria);
+        });
+        stmt.finalize();
+      }
+    });
+
+    // Actualizar tabla productos para incluir categoría
+    db.run(`CREATE TABLE IF NOT EXISTS productos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      codigo TEXT UNIQUE,
+      nombre TEXT NOT NULL,
+      descripcion TEXT,
+      precio REAL NOT NULL,
+      cantidad INTEGER DEFAULT 0,
+      talla TEXT,
+      categoria_id INTEGER,
+      imagen TEXT,
+      fecha_creacion TEXT DEFAULT CURRENT_TIMESTAMP,
+      fecha_actualizacion TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (categoria_id) REFERENCES categorias(id)
+    )`);
+    
+    console.log('Tabla de productos creada correctamente');
+
+    // Tabla de ventas (cabecera)
+    db.run(`CREATE TABLE IF NOT EXISTS ventas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT DEFAULT CURRENT_TIMESTAMP,
+      subtotal REAL,
+      iva REAL,
+      total REAL,
+      forma_pago TEXT,
+      monto_recibido REAL,
+      cambio REAL
+    )`);
+    
+    console.log('Tabla de ventas creada correctamente');
+    
+    // Tabla de detalles de venta
+    db.run(`CREATE TABLE IF NOT EXISTS venta_detalles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      venta_id INTEGER,
+      producto_id INTEGER,
+      cantidad INTEGER,
+      precio_unitario REAL,
+      subtotal REAL,
+      FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
+      FOREIGN KEY (producto_id) REFERENCES productos(id)
+    )`);
+    
+    console.log('Tabla de detalles de venta creada correctamente');
+    
+    // Insertar datos de ejemplo si la tabla de productos está vacía
+    db.get("SELECT COUNT(*) as count FROM productos", [], (err, row) => {
+      if (err) return console.error('Error al verificar productos:', err);
+      
+      if (row.count === 0) {
+        console.log('Insertando datos de ejemplo...');
+        const stmt = db.prepare("INSERT INTO productos (codigo, nombre, descripcion, precio, cantidad) VALUES (?, ?, ?, ?, ?)");
+        stmt.run('ZAP-001', 'Zapato rojo', 'Zapato deportivo color rojo', 59.90, 10);
+        stmt.run('ZAP-002', 'Botín negro', 'Botín elegante negro', 89.50, 5);
+        stmt.run('ZAP-003', 'Sandalias', 'Sandalias de verano', 29.99, 15);
+        stmt.finalize();
+        console.log('Datos de ejemplo insertados correctamente');
+      } else {
+        console.log('La base de datos ya contiene datos, no se insertan ejemplos');
+      }
+    });
+  });
+}
+
+let mainWindow;
+
+// Configuración de la ventana principal
+const windowConfig = {
+  width: 1100,
+  height: 700,
+  minWidth: 800,
+  minHeight: 600,
+  webPreferences: {
+    nodeIntegration: true,
+    contextIsolation: false,
+    enableRemoteModule: true
+  },
+  show: false, // No mostrar hasta que esté listo
+  icon: path.join(__dirname, 'assets/icon.png')
+};
+
+function createWindow() {
+  // Crear la ventana del navegador
+  mainWindow = new BrowserWindow(windowConfig);
+  
+  // Cargar el menú principal
+  cargarVentana('menu.html');
+  
+  // Configurar menú de la aplicación
+  configurarMenu();
+  
+  // Mostrar ventana cuando esté lista
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+  
+  // Manejar cierre de la ventana
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+// Función para cargar diferentes ventanas
+function cargarVentana(archivo) {
+  if (mainWindow) {
+    mainWindow.loadFile(path.join(__dirname, archivo));
+  }
+}
+
+// Configurar menú de la aplicación
+function configurarMenu() {
+  const template = [
+    {
+      label: 'Archivo',
+      submenu: [
+        {
+          label: 'Ir al TPV',
+          click: () => {
+            cargarVentana('index.html');
+          }
+        },
+        {
+          label: 'Gestión de Productos',
+          click: () => {
+            cargarVentana('productos.html');
+          }
+        },
+        {
+          label: 'Configuración',
+          click: () => {
+            cargarVentana('config.html');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Salir',
+          click: () => {
+            app.quit();
+          }
+        }
+      ]
+    },
+    {
+      label: 'Editar',
+      submenu: [
+        { role: 'undo', label: 'Deshacer' },
+        { role: 'redo', label: 'Rehacer' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Cortar' },
+        { role: 'copy', label: 'Copiar' },
+        { role: 'paste', label: 'Pegar' },
+        { role: 'delete', label: 'Eliminar' },
+        { type: 'separator' },
+        { role: 'selectAll', label: 'Seleccionar Todo' }
+      ]
+    },
+    {
+      label: 'Ver',
+      submenu: [
+        { role: 'reload', label: 'Recargar' },
+        { role: 'toggleDevTools', label: 'Herramientas de Desarrollo' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: 'Restaurar Zoom' },
+        { role: 'zoomIn', label: 'Acercar' },
+        { role: 'zoomOut', label: 'Alejar' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Pantalla Completa' }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+// Manejar navegación desde el menú
+ipcMain.on('navegar-a', (event, archivo) => {
+  cargarVentana(archivo);
+});
+
+// Manejador para buscar productos
+ipcMain.handle('buscar-productos', async (event, { termino }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Buscar productos mientras se escribe
+      const query = `
+        SELECT p.*, c.nombre as categoria_nombre 
+        FROM productos p
+        LEFT JOIN categorias c ON p.categoria_id = c.id
+        WHERE 
+          p.nombre LIKE ? OR 
+          p.codigo LIKE ? OR 
+          p.descripcion LIKE ?
+        ORDER BY p.nombre
+        LIMIT 20
+      `;
+      
+      const searchTerm = `%${termino}%`;
+      
+      db.all(query, [searchTerm, searchTerm, searchTerm], (err, rows) => {
+        if (err) {
+          console.error('Error al buscar productos:', err);
+          reject({ error: true, mensaje: `Error al buscar productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en buscar-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener un producto por ID
+ipcMain.handle('obtener-producto', async (event, { id }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.get('SELECT * FROM productos WHERE id = ?', [id], (err, row) => {
+        if (err) {
+          console.error('Error al obtener producto:', err);
+          reject({ error: true, mensaje: `Error al obtener producto: ${err.message}` });
+        } else {
+          resolve(row);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-producto:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener todos los productos
+ipcMain.handle('obtener-productos', async (event) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.all('SELECT * FROM productos ORDER BY nombre', (err, rows) => {
+        if (err) {
+          console.error('Error al obtener productos:', err);
+          reject({ error: true, mensaje: `Error al obtener productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para registrar una venta
+ipcMain.handle('registrar-venta', async (event, venta) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.serialize(() => {
+        // Comenzar transacción
+        db.run('BEGIN TRANSACTION');
+        
+        // Insertar la cabecera de la venta
+        const sqlVenta = `
+          INSERT INTO ventas (
+            fecha, subtotal, descuento, iva, total, 
+            forma_pago, monto_recibido, cambio
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        db.run(
+          sqlVenta, 
+          [
+            venta.fecha, 
+            venta.subtotal, 
+            venta.descuento, 
+            venta.iva, 
+            venta.total, 
+            venta.metodoPago, 
+            venta.montoRecibido, 
+            venta.cambio
+          ], 
+          function(err) {
+            if (err) {
+              console.error('Error al insertar venta:', err);
+              db.run('ROLLBACK');
+              reject({ error: true, mensaje: `Error al insertar venta: ${err.message}` });
+              return;
+            }
+            
+            const ventaId = this.lastID;
+            let detallesInsertados = 0;
+            
+            // Insertar detalles de la venta
+            venta.items.forEach(item => {
+              const sqlDetalle = `
+                INSERT INTO venta_detalles (
+                  venta_id, producto_id, cantidad, precio_unitario, subtotal
+                ) VALUES (?, ?, ?, ?, ?)
+              `;
+              
+              db.run(
+                sqlDetalle,
+                [
+                  ventaId,
+                  item.id,
+                  item.cantidad,
+                  item.precio,
+                  item.subtotal
+                ],
+                function(err) {
+                  if (err) {
+                    console.error('Error al insertar detalle de venta:', err);
+                    db.run('ROLLBACK');
+                    reject({ error: true, mensaje: `Error al insertar detalle de venta: ${err.message}` });
+                    return;
+                  }
+                  
+                  // Actualizar stock del producto
+                  const sqlUpdateStock = `
+                    UPDATE productos 
+                    SET cantidad = cantidad - ? 
+                    WHERE id = ?
+                  `;
+                  
+                  db.run(sqlUpdateStock, [item.cantidad, item.id], function(err) {
+                    if (err) {
+                      console.error('Error al actualizar stock:', err);
+                      db.run('ROLLBACK');
+                      reject({ error: true, mensaje: `Error al actualizar stock: ${err.message}` });
+                      return;
+                    }
+                    
+                    detallesInsertados++;
+                    
+                    // Si se han procesado todos los items, finalizar la transacción
+                    if (detallesInsertados === venta.items.length) {
+                      db.run('COMMIT', function(err) {
+                        if (err) {
+                          console.error('Error al finalizar la transacción:', err);
+                          db.run('ROLLBACK');
+                          reject({ error: true, mensaje: `Error al finalizar la transacción: ${err.message}` });
+                          return;
+                        }
+                        
+                        resolve({ success: true, ventaId: ventaId });
+                      });
+                    }
+                  });
+                }
+              );
+            });
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error en registrar-venta:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para imprimir un ticket
+ipcMain.handle('imprimir-ticket', async (event, { ventaId }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Obtener datos de la venta
+      const sqlVenta = `
+        SELECT * FROM ventas 
+        WHERE id = ?
+      `;
+      
+      db.get(sqlVenta, [ventaId], (err, venta) => {
+        if (err) {
+          console.error('Error al obtener venta:', err);
+          reject({ error: true, mensaje: `Error al obtener venta: ${err.message}` });
+          return;
+        }
+        
+        // Obtener detalles de la venta
+        const sqlDetalles = `
+          SELECT vd.*, p.nombre, p.codigo 
+          FROM venta_detalles vd
+          INNER JOIN productos p ON vd.producto_id = p.id
+          WHERE vd.venta_id = ?
+        `;
+        
+        db.all(sqlDetalles, [ventaId], (err, detalles) => {
+          if (err) {
+            console.error('Error al obtener detalles de venta:', err);
+            reject({ error: true, mensaje: `Error al obtener detalles de venta: ${err.message}` });
+            return;
+          }
+          
+          resolve({ success: true, venta, detalles });
+        });
+      });
+    } catch (error) {
+      console.error('Error en imprimir-ticket:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para guardar producto (nuevo)
+ipcMain.handle('guardar-producto', async (event, producto) => {
+  console.log('Recibida solicitud para guardar producto:', producto);
+  
+  return new Promise((resolve, reject) => {
+    try {
+      const { nombre, descripcion, precio, cantidad, codigo, categoriaId } = producto;
+      
+      // Generar código único si no se proporciona
+      let codigoFinal = codigo;
+      if (!codigoFinal) {
+        codigoFinal = `ZAP-${Date.now().toString().slice(-6)}`;
+      }
+      
+      // Preparar consulta SQL
+      const stmt = db.prepare(`
+        INSERT INTO productos 
+        (codigo, nombre, descripcion, precio, cantidad, categoria_id) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      
+      // Ejecutar consulta
+      stmt.run(
+        codigoFinal,
+        nombre,
+        descripcion || '',
+        precio || 0,
+        cantidad || 0,
+        categoriaId || null,
+        function(err) {
+          if (err) {
+            console.error('Error al guardar producto:', err);
+            reject({ error: true, mensaje: `Error al guardar producto: ${err.message}` });
+          } else {
+            console.log(`Producto guardado con ID: ${this.lastID}`);
+            resolve({ 
+              success: true, 
+              mensaje: 'Producto guardado correctamente', 
+              productoId: this.lastID,
+              codigo: codigoFinal
+            });
+          }
+        }
+      );
+      
+      // Finalizar statement
+      stmt.finalize();
+    } catch (error) {
+      console.error('Error en guardar-producto:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para agregar categoría
+ipcMain.handle('agregar-categoria', async (event, categoria) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const { nombre, descripcion } = categoria;
+      
+      // Preparar consulta SQL
+      const stmt = db.prepare(`
+        INSERT INTO categorias 
+        (nombre, descripcion) 
+        VALUES (?, ?)
+      `);
+      
+      // Ejecutar consulta
+      stmt.run(
+        nombre,
+        descripcion || '',
+        function(err) {
+          if (err) {
+            console.error('Error al guardar categoría:', err);
+            reject({ error: true, mensaje: `Error al guardar categoría: ${err.message}` });
+          } else {
+            console.log(`Categoría guardada con ID: ${this.lastID}`);
+            resolve({ 
+              success: true, 
+              mensaje: 'Categoría guardada correctamente', 
+              categoriaId: this.lastID
+            });
+          }
+        }
+      );
+      
+      // Finalizar statement
+      stmt.finalize();
+    } catch (error) {
+      console.error('Error en agregar-categoria:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Actualizar categoría
+ipcMain.handle('actualizar-categoria', async (event, categoria) => {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE categorias SET nombre = ?, descripcion = ? WHERE id = ?',
+      [categoria.nombre, categoria.descripcion, categoria.id],
+      function(err) {
+        if (err) {
+          console.error('Error al actualizar categoría:', err);
+          reject({ error: true, mensaje: `Error al actualizar categoría: ${err.message}` });
+        } else {
+          resolve({ success: true, mensaje: 'Categoría actualizada correctamente' });
+        }
+      }
+    );
+  });
+});
+
+// Obtener categorías
+ipcMain.handle('obtener-categorias', async () => {
+  return new Promise((resolve, reject) => {
+    db.all('SELECT * FROM categorias ORDER BY nombre', (err, rows) => {
+      if (err) {
+        console.error('Error al obtener categorías:', err);
+        reject({ error: true, mensaje: `Error al obtener categorías: ${err.message}` });
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+});
+
+// Verificar si existe una categoría
+ipcMain.handle('existe-categoria', async (event, { nombre, id }) => {
+  return new Promise((resolve, reject) => {
+    // Si estamos editando, excluimos el ID actual
+    const query = id 
+      ? 'SELECT COUNT(*) as count FROM categorias WHERE nombre = ? AND id != ?'
+      : 'SELECT COUNT(*) as count FROM categorias WHERE nombre = ?';
+    
+    const params = id ? [nombre, id] : [nombre];
+    
+    db.get(query, params, (err, row) => {
+      if (err) {
+        console.error('Error al verificar categoría:', err);
+        reject({ error: true, mensaje: `Error al verificar categoría: ${err.message}` });
+      } else {
+        resolve({ existe: row.count > 0 });
+      }
+    });
+  });
+});
+
+// Eventos de aplicación
+app.on('ready', () => {
+  // Crear las tablas si no existen
+  initializeDatabase();
+  
+  // Crear ventana principal
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
+});
