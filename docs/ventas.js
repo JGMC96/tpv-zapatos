@@ -14,8 +14,27 @@ async function guardarVentaEnFirebase(venta) {
   }
 }
 
+// Función para guardar venta tanto local como en Firebase
+async function guardarVenta(venta) {
+  try {
+    // Guardar en Firebase
+    await guardarVentaEnFirebase(venta);
+    
+    // Guardar localmente
+    if (window.ipcRenderer) {
+      await window.ipcRenderer.invoke('registrar-venta', venta);
+    }
+    
+    console.log("✅ Venta guardada correctamente en ambos sistemas");
+    return true;
+  } catch (error) {
+    console.error("❌ Error al guardar venta:", error);
+    return false;
+  }
+}
+
 // Ejemplo de uso
-// guardarVentaEnFirebase({
+// guardarVenta({
 //   producto: "Zueco Bolonia",
 //   precio: 119,
 //   tipo_pago: "efectivo",

@@ -96,13 +96,12 @@ const TPVHandler = {
             aplicarDescuentoTotal: document.getElementById('aplicar-descuento-total'),
             
             // Método de pago
-            efectivoBtn: document.getElementById('efectivo-btn'),
-            tarjetaBtn: document.getElementById('tarjeta-btn'),
+            metodoPago: document.getElementById('metodoPago'),
             efectivoCampos: document.getElementById('efectivo-campos'),
             
             // Campos de efectivo
-            montoRecibido: document.getElementById('monto-recibido'),
-            cambio: document.getElementById('cambio'),
+            efectivoEntregado: document.getElementById('efectivoEntregado'),
+            cambioCalculado: document.getElementById('cambioCalculado'),
             
             // Acciones
             btnPagar: document.getElementById('btn-pagar'),
@@ -171,13 +170,9 @@ const TPVHandler = {
         }
         
         // Método de pago
-        if (this.elements.efectivoBtn && this.elements.tarjetaBtn) {
-            this.elements.efectivoBtn.addEventListener('click', () => {
-                this.setPaymentMethod('efectivo');
-            });
-            
-            this.elements.tarjetaBtn.addEventListener('click', () => {
-                this.setPaymentMethod('tarjeta');
+        if (this.elements.metodoPago) {
+            this.elements.metodoPago.addEventListener('change', () => {
+                this.toggleEfectivoInput();
             });
         }
         
@@ -207,6 +202,56 @@ const TPVHandler = {
             this.elements.btnCancelar.addEventListener('click', () => {
                 this.clearCart();
             });
+        }
+    },
+    
+    /**
+     * Establece el método de pago
+     */
+    setPaymentMethod(method) {
+        // Actualizar carrito
+        this.carrito.metodoPago = method;
+        console.log('Método de pago establecido:', method);
+        
+        // Mostrar/ocultar campos de efectivo
+        this.toggleEfectivoInput();
+    },
+    
+    /**
+     * Muestra/oculta los campos de efectivo según el método de pago
+     */
+    toggleEfectivoInput() {
+        if (!this.elements.metodoPago || !this.elements.efectivoCampos) {
+            console.error('Elementos metodoPago o efectivoCampos no encontrados');
+            return;
+        }
+        
+        const metodo = this.elements.metodoPago.value;
+        console.log('Método seleccionado:', metodo);
+        
+        // Actualizar el método de pago en el carrito
+        this.carrito.metodoPago = metodo;
+        
+        // Mostrar u ocultar los campos de efectivo
+        this.elements.efectivoCampos.style.display = metodo === "efectivo" ? "block" : "none";
+        
+        // Limpiar campos de efectivo cuando se cambia el método
+        if (metodo !== "efectivo") {
+            this.carrito.montoRecibido = 0;
+            this.carrito.cambio = 0;
+            if (this.elements.efectivoEntregado) {
+                this.elements.efectivoEntregado.value = "";
+            }
+            if (this.elements.cambioCalculado) {
+                this.elements.cambioCalculado.textContent = this.formatCurrency(0);
+            }
+        }
+        
+        // Actualizar estado del botón de pagar
+        if (this.elements.btnPagar) {
+            this.elements.btnPagar.disabled = metodo === "efectivo" && 
+                                           (!this.carrito.montoRecibido || 
+                                            this.carrito.montoRecibido < this.carrito.total);
         }
     },
     
@@ -265,3 +310,54 @@ const TPVHandler = {
 };
 
 // Continuará en tpv-handler-parte2.js
+
+// Inicialización cuando el DOM está completamente cargado
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("🔄 DOM completamente cargado, inicializando eventos...");
+  
+  const metodoPago = document.getElementById("metodoPago");
+  const btnFinalizar = document.getElementById("btnFinalizarVenta") || document.getElementById("btn-pagar");
+  const efectivoInput = document.getElementById("efectivoEntregado");
+
+  if (metodoPago) {
+    console.log("✅ metodoPago encontrado, agregando evento change");
+    metodoPago.addEventListener("change", () => {
+      console.log("🔄 Método de pago cambiado");
+      if (typeof toggleEfectivoInput === 'function') {
+        toggleEfectivoInput();
+      } else if (TPVHandler && TPVHandler.toggleEfectivoInput) {
+        TPVHandler.toggleEfectivoInput();
+      }
+    });
+  } else {
+    console.error("❌ metodoPago no encontrado");
+  }
+
+  if (efectivoInput) {
+    console.log("✅ efectivoInput encontrado, agregando evento input");
+    efectivoInput.addEventListener("input", () => {
+      console.log("🔄 Monto efectivo cambiado");
+      if (typeof handleMontoRecibido === 'function') {
+        handleMontoRecibido();
+      } else if (TPVHandler && TPVHandler.calculateChange) {
+        TPVHandler.calculateChange();
+      }
+    });
+  } else {
+    console.error("❌ efectivoInput no encontrado");
+  }
+
+  if (btnFinalizar) {
+    console.log("✅ btnFinalizar encontrado, agregando evento click");
+    btnFinalizar.addEventListener("click", () => {
+      console.log("🔄 Clic en botón finalizar");
+      if (typeof finalizeSale === 'function') {
+        finalizeSale();
+      } else if (TPVHandler && TPVHandler.finalizeSale) {
+        TPVHandler.finalizeSale();
+      }
+    });
+  } else {
+    console.error("❌ btnFinalizar no encontrado");
+  }
+});

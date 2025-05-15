@@ -26,29 +26,84 @@ Object.assign(TPVHandler, {
      * Calcula el cambio a devolver
      */
     calculateChange() {
-        const montoRecibido = parseFloat(this.elements.montoRecibido.value) || 0;
+        const montoRecibido = parseFloat(this.elements.efectivoEntregado.value) || 0;
+        if (isNaN(montoRecibido)) {
+            this.elements.efectivoEntregado.value = '';
+            this.carrito.montoRecibido = 0;
+            this.carrito.cambio = 0;
+            this.elements.cambioCalculado.textContent = this.formatCurrency(0);
+            return;
+        }
+        
         this.carrito.montoRecibido = montoRecibido;
         this.carrito.cambio = Math.max(0, montoRecibido - this.carrito.total);
         
         // Actualizar UI
-        if (this.elements.cambio) {
-            this.elements.cambio.textContent = this.formatCurrency(this.carrito.cambio);
+        if (this.elements.cambioCalculado) {
+            this.elements.cambioCalculado.textContent = this.formatCurrency(this.carrito.cambio);
         }
+        
+        // Actualizar estado del botón de pago
+        this.elements.btnPagar.disabled = this.carrito.metodoPago === 'efectivo' && montoRecibido < this.carrito.total;
+    },
+
+    // Añadir método para manejar el input del monto recibido
+    handleMontoRecibido() {
+        // Comprobar que el elemento existe
+        const input = this.elements.efectivoEntregado;
+        if (!input) {
+            console.error('Elemento efectivoEntregado no encontrado');
+            return;
+        }
+        
+        console.log('Configurando evento para efectivoEntregado');
+        
+        input.addEventListener('input', (e) => {
+            const value = e.target.value.replace(/[^0-9.]/g, '');
+            const parts = value.split('.');
+            if (parts.length > 1) {
+                parts[1] = parts[1].slice(0, 2); // Limitar a 2 decimales
+            }
+            e.target.value = parts.join('.');
+            this.calculateChange();
+        });
     },
     
     /**
      * Finaliza la venta actual
      */
-    finalizeSale() {
+    async finalizeSale() {
+        console.log('🧯 finalizeSale triggered');
+        console.log('Estado del carrito:', this.carrito);
+        
         if (this.carrito.items.length === 0) {
             alert('El carrito está vacío. Agrega productos para finalizar la venta.');
             return;
         }
         
-        if (this.carrito.metodoPago === 'efectivo' && this.carrito.montoRecibido < this.carrito.total) {
-            alert('El monto recibido es menor que el total a pagar.');
-            this.elements.montoRecibido.focus();
-            return;
+        // Verificar si se ha seleccionado un método de pago
+        if (!this.carrito.metodoPago) {
+            // Establecer efectivo como predeterminado si no se ha seleccionado
+            this.carrito.metodoPago = 'efectivo';
+            if (this.elements.metodoPago) {
+                this.elements.metodoPago.value = 'efectivo';
+                this.toggleEfectivoInput();
+            }
+        }
+        
+        // Si el método es efectivo, verificar monto recibido
+        if (this.carrito.metodoPago === 'efectivo') {
+            const montoRecibido = parseFloat(this.elements.efectivoEntregado.value) || 0;
+            
+            if (montoRecibido < this.carrito.total) {
+                alert('El monto recibido es menor que el total a pagar.');
+                this.elements.efectivoEntregado.focus();
+                return;
+            }
+            
+            // Actualizar montoRecibido en el carrito
+            this.carrito.montoRecibido = montoRecibido;
+            this.carrito.cambio = Math.max(0, montoRecibido - this.carrito.total);
         }
         
         // Preparar los datos de venta en un formato serializable
@@ -76,17 +131,17 @@ Object.assign(TPVHandler, {
             cambio: this.carrito.cambio
         };
         
-        if (window.ipcRenderer) {
-            window.ipcRenderer.invoke('registrar-venta', venta)
-                .then(result => {
-                    alert('Venta registrada correctamente');
-                    this.printTicket(result.ventaId);
-                    this.clearCart();
-                })
-                .catch(error => {
-                    console.error('Error al registrar venta:', error);
-                    alert('Error al registrar la venta: ' + error.message);
-                });
+        // Guardar la venta en ambos sistemas
+        try {
+            const success = await guardarVenta(venta);
+            if (success) {
+                alert('Venta registrada correctamente');
+                this.printTicket(venta.fecha); // Usamos la fecha como ID temporal
+                this.clearCart();
+            }
+        } catch (error) {
+            console.error('Error al registrar venta:', error);
+            alert('Error al registrar la venta: ' + error.message);
         }
     },
     
