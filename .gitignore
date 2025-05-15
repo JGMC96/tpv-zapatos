@@ -1,7 +1,13 @@
-# Base de datos
-*.db
+# node & Electron
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
 *.sqlite
-*.sqlite3
+*.db
+*.exe
+*.temp
 
 # Archivos de respaldo
 *.bak
@@ -11,14 +17,15 @@
 config.json
 
 # Directorios de node.js
-node_modules/
 npm-debug.log
 yarn-debug.log
 yarn-error.log
 
 # Archivos del sistema operativo
-.DS_Store
 Thumbs.db
+
+# Visual Studio Code
+.vscode/
 
 # Logs
 logs
