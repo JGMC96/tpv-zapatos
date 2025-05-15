@@ -1,0 +1,25 @@
+# Base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de respaldo
+*.bak
+*.backup
+
+# Archivos de configuración local
+config.json
+
+# Directorios de node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log

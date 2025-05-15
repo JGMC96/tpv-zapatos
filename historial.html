@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de Ventas - TPV Zapatos</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .filtros {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .filtros-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .btn-volver {
+      margin-top: 20px;
+    }
+    
+    .resumen {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .resumen-item {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .resumen-valor {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #2c3e50;
+      margin: 5px 0;
+    }
+    
+    .resumen-titulo {
+      color: #7f8c8d;
+      font-size: 0.9em;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    tr:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .acciones-tabla {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .btn-accion {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    
+    .btn-ver {
+      background-color: #3498db;
+      color: white;
+    }
+    
+    .btn-imprimir {
+      background-color: #2ecc71;
+      color: white;
+    }
+    
+    .btn-devolver {
+      background-color: #e74c3c;
+      color: white;
+    }
+    
+    .paginacion {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .paginacion button {
+      padding: 8px 15px;
+      border: 1px solid #ddd;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    .paginacion button.activo {
+      background: #2c3e50;
+      color: white;
+      border-color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Historial de Ventas</h1>
+    
+    <div class="filtros">
+      <h2>Filtros</h2>
+      <div class="filtros-grid">
+        <div>
+          <label for="fecha-inicio">Fecha inicio:</label>
+          <input type="date" id="fecha-inicio" class="form-control">
+        </div>
+        
+        <div>
+          <label for="fecha-fin">Fecha fin:</label>
+          <input type="date" id="fecha-fin" class="form-control">
+        </div>
+        
+        <div>
+          <label for="forma-pago">Forma de pago:</label>
+          <select id="forma-pago" class="form-control">
+            <option value="">Todas</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="tarjeta">Tarjeta</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="buscar">Buscar:</label>
+          <input type="text" id="buscar" class="form-control" placeholder="Código, producto...">
+        </div>
+      </div>
+      
+      <button id="btn-aplicar-filtros" class="btn btn-primary">Aplicar Filtros</button>
+      <button id="btn-limpiar-filtros" class="btn btn-secondary">Limpiar Filtros</button>
+    </div>
+    
+    <div class="resumen">
+      <div class="resumen-item">
+        <div class="resumen-titulo">Total Ventas</div>
+        <div class="resumen-valor" id="total-ventas">0</div>
+        <div class="resumen-desc">En el período seleccionado</div>
+      </div>
+      
+      <div class="resumen-item">
+        <div class="resumen-titulo">Ventas Efectivo</div>
+        <div class="resumen-valor" id="ventas-efectivo">0</div>
+        <div class="resumen-desc">Total en efectivo</div>
+      </div>
+      
+      <div class="resumen-item">
+        <div class="resumen-titulo">Ventas Tarjeta</div>
+        <div class="resumen-valor" id="ventas-tarjeta">0</div>
+        <div class="resumen-desc">Total con tarjeta</div>
+      </div>
+      
+      <div class="resumen-item">
+        <div class="resumen-titulo">Productos Vendidos</div>
+        <div class="resumen-valor" id="total-productos">0</div>
+        <div class="resumen-desc">Unidades totales</div>
+      </div>
+    </div>
+    
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Fecha</th>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Total</th>
+            <th>Forma de Pago</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-ventas">
+          <!-- Las ventas se cargarán aquí dinámicamente -->
+          <tr>
+            <td colspan="7" class="text-center">Cargando ventas...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="paginacion">
+      <button id="btn-prev">Anterior</button>
+      <div id="paginacion-numeros">
+        <button class="activo">1</button>
+      </div>
+      <button id="btn-next">Siguiente</button>
+    </div>
+    
+    <button id="btn-volver" class="btn btn-secondary btn-volver">
+      ← Volver al Menú Principal
+    </button>
+  </div>
+
+  <script>
+    // Script para manejar la interacción del historial
+    document.getElementById('btn-volver').addEventListener('click', () => {
+      window.location.href = 'menu.html';
+    });
+    
+    // Aquí iría el código para cargar y filtrar las ventas
+    // desde la base de datos usando ipcRenderer
+  </script>
+  <!-- Puente para acceder a las APIs de Electron -->
+  <script src="js/electron-bridge.js"></script>
+  <!-- Scripts del sistema de eventos centralizado -->
+  <script src="js/event-handler.js"></script>
+  <script src="js/navigation.js"></script>
+  <script src="js/app-initializer.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
