@@ -299,11 +299,18 @@ Object.assign(TPVHandler, {
         // Aplicar descuento total
         const subtotalConDescuento = this.carrito.subtotal - this.carrito.descuentoTotal;
         
-        // Calcular IVA
-        this.carrito.iva = subtotalConDescuento * (this.config.tasaIVA / 100);
+        // Calculamos el total directamente (el precio ya incluye IVA)
+        this.carrito.total = subtotalConDescuento;
         
-        // Calcular total
-        this.carrito.total = subtotalConDescuento + this.carrito.iva;
+        // Calcular el IVA como parte del precio (desglose)
+        // El divisor es (1 + tasaIVA/100) para extraer el IVA del precio total
+        // Por ejemplo: si el total es 121€ con 21% IVA, la base imponible es 100€ y el IVA es 21€
+        const divisor = 1 + (this.config.tasaIVA / 100);
+        const baseImponible = this.carrito.total / divisor;
+        this.carrito.iva = this.carrito.total - baseImponible;
+        
+        // Guardamos también la base imponible para usarla en los tickets
+        this.carrito.baseImponible = baseImponible;
     }
 });
 

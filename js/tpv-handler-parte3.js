@@ -68,7 +68,9 @@ Object.assign(TPVHandler, {
             descuento: this.carrito.descuentoTotal,
             descuentoPorcentaje: this.carrito.descuentoTotalPorcentaje,
             iva: this.carrito.iva,
-            total: this.carrito.total,
+            iva_porcentaje: this.config.tasaIVA, // Añadimos el porcentaje de IVA
+            baseImponible: this.carrito.baseImponible, // Base imponible (precio sin IVA)
+            total: this.carrito.total, // El total ya incluye IVA
             metodoPago: this.carrito.metodoPago,
             montoRecibido: this.carrito.montoRecibido,
             cambio: this.carrito.cambio
@@ -151,23 +153,26 @@ Object.assign(TPVHandler, {
                 
                 <div class="ticket-footer">
                     <div class="ticket-summary">
-                        <div class="summary-row">
-                            <span>Subtotal:</span>
-                            <span>${venta.subtotal.toFixed(2)} ${simbolo}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>IVA (${(venta.iva / venta.subtotal * 100).toFixed(0)}%):</span>
-                            <span>${venta.iva.toFixed(2)} ${simbolo}</span>
-                        </div>
-                        ${venta.descuento > 0 ? `
-                        <div class="summary-row">
-                            <span>Descuento:</span>
-                            <span>-${venta.descuento.toFixed(2)} ${simbolo}</span>
-                        </div>
-                        ` : ''}
                         <div class="summary-row total">
                             <span>TOTAL:</span>
                             <span>${venta.total.toFixed(2)} ${simbolo}</span>
+                        </div>
+                        ${venta.descuento > 0 ? `
+                        <div class="summary-row">
+                            <span>Descuento aplicado:</span>
+                            <span>-${venta.descuento.toFixed(2)} ${simbolo}</span>
+                        </div>
+                        ` : ''}
+                        <div class="summary-row">
+                            <span>Base imponible:</span>
+                            <span>${(venta.total - venta.iva).toFixed(2)} ${simbolo}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>IVA (${venta.iva_porcentaje || '21'}%):</span>
+                            <span>${venta.iva.toFixed(2)} ${simbolo}</span>
+                        </div>
+                        <div class="summary-info" style="font-size: 0.8em; margin-top: 5px; font-style: italic; text-align: center;">
+                            <span>IVA incluido en el precio</span>
                         </div>
                         ${venta.forma_pago === 'efectivo' ? `
                         <div class="summary-row">

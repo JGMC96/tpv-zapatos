@@ -106,7 +106,9 @@ function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT DEFAULT CURRENT_TIMESTAMP,
       subtotal REAL,
+      descuento REAL DEFAULT 0,
       iva REAL,
+      iva_porcentaje REAL DEFAULT 21,
       total REAL,
       forma_pago TEXT,
       monto_recibido REAL,
@@ -199,48 +201,62 @@ function configurarMenu() {
     {
       label: 'Archivo',
       submenu: [
-        { label: 'Ventas', click: () => cargarVentana('index.html') },
-        { label: 'Productos', click: () => cargarVentana('productos.html') },
-        { label: 'Historial', click: () => cargarVentana('historial.html') },
+        {
+          label: 'Ir al TPV',
+          click: () => {
+            cargarVentana('index.html');
+          }
+        },
+        {
+          label: 'Gestión de Productos',
+          click: () => {
+            cargarVentana('productos.html');
+          }
+        },
+        {
+          label: 'Configuración',
+          click: () => {
+            cargarVentana('config.html');
+          }
+        },
         { type: 'separator' },
-        { 
-          label: 'Salir', 
-          accelerator: 'CmdOrCtrl+Q',
-          click: () => app.quit() 
+        {
+          label: 'Salir',
+          click: () => {
+            app.quit();
+          }
         }
+      ]
+    },
+    {
+      label: 'Editar',
+      submenu: [
+        { role: 'undo', label: 'Deshacer' },
+        { role: 'redo', label: 'Rehacer' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Cortar' },
+        { role: 'copy', label: 'Copiar' },
+        { role: 'paste', label: 'Pegar' },
+        { role: 'delete', label: 'Eliminar' },
+        { type: 'separator' },
+        { role: 'selectAll', label: 'Seleccionar Todo' }
       ]
     },
     {
       label: 'Ver',
       submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        { role: 'reload', label: 'Recargar' },
+        { role: 'toggleDevTools', label: 'Herramientas de Desarrollo' },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { role: 'resetZoom', label: 'Restaurar Zoom' },
+        { role: 'zoomIn', label: 'Acercar' },
+        { role: 'zoomOut', label: 'Alejar' },
         { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
-    },
-    {
-      label: 'Ayuda',
-      submenu: [
-        {
-          label: 'Acerca de',
-          click: () => {
-            dialog.showMessageBox({
-              title: 'Acerca de TPV Zapatos',
-              message: 'Sistema de Punto de Venta para Tienda de Zapatos\nVersión 1.0.0',
-              buttons: ['Aceptar']
-            });
-          }
-        }
+        { role: 'togglefullscreen', label: 'Pantalla Completa' }
       ]
     }
   ];
-  
+
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
@@ -333,9 +349,9 @@ ipcMain.handle('registrar-venta', async (event, venta) => {
         // Insertar la cabecera de la venta
         const sqlVenta = `
           INSERT INTO ventas (
-            fecha, subtotal, descuento, iva, total, 
+            fecha, subtotal, descuento, iva, iva_porcentaje, total, 
             forma_pago, monto_recibido, cambio
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         db.run(
@@ -345,6 +361,7 @@ ipcMain.handle('registrar-venta', async (event, venta) => {
             venta.subtotal, 
             venta.descuento, 
             venta.iva, 
+            venta.iva_porcentaje || 21, // Si no se proporciona, usar 21% por defecto
             venta.total, 
             venta.metodoPago, 
             venta.montoRecibido, 
@@ -472,78 +489,6 @@ ipcMain.handle('imprimir-ticket', async (event, { ventaId }) => {
   });
 });
 
-// Manejador para buscar productos
-ipcMain.handle('buscar-productos', async (event, { termino }) => {
-  return new Promise((resolve, reject) => {
-    try {
-      // Buscar productos mientras se escribe
-      const query = `
-        SELECT p.*, c.nombre as categoria_nombre 
-        FROM productos p
-        LEFT JOIN categorias c ON p.categoria_id = c.id
-        WHERE 
-          p.nombre LIKE ? OR 
-          p.codigo LIKE ? OR 
-          p.descripcion LIKE ?
-        ORDER BY p.nombre
-        LIMIT 20
-      `;
-      
-      const searchTerm = `%${termino}%`;
-      
-      db.all(query, [searchTerm, searchTerm, searchTerm], (err, rows) => {
-        if (err) {
-          console.error('Error al buscar productos:', err);
-          reject({ error: true, mensaje: `Error al buscar productos: ${err.message}` });
-        } else {
-          resolve(rows);
-        }
-      });
-    } catch (error) {
-      console.error('Error en buscar-productos:', error);
-      reject({ error: true, mensaje: `Error: ${error.message}` });
-    }
-  });
-});
-
-// Manejador para obtener un producto por ID
-ipcMain.handle('obtener-producto', async (event, { id }) => {
-  return new Promise((resolve, reject) => {
-    try {
-      db.get('SELECT * FROM productos WHERE id = ?', [id], (err, row) => {
-        if (err) {
-          console.error('Error al obtener producto:', err);
-          reject({ error: true, mensaje: `Error al obtener producto: ${err.message}` });
-        } else {
-          resolve(row);
-        }
-      });
-    } catch (error) {
-      console.error('Error en obtener-producto:', error);
-      reject({ error: true, mensaje: `Error: ${error.message}` });
-    }
-  });
-});
-
-// Manejador para obtener todos los productos
-ipcMain.handle('obtener-productos', async (event) => {
-  return new Promise((resolve, reject) => {
-    try {
-      db.all('SELECT * FROM productos ORDER BY nombre', (err, rows) => {
-        if (err) {
-          console.error('Error al obtener productos:', err);
-          reject({ error: true, mensaje: `Error al obtener productos: ${err.message}` });
-        } else {
-          resolve(rows);
-        }
-      });
-    } catch (error) {
-      console.error('Error en obtener-productos:', error);
-      reject({ error: true, mensaje: `Error: ${error.message}` });
-    }
-  });
-});
-
 // Manejador para guardar producto (nuevo)
 ipcMain.handle('guardar-producto', async (event, producto) => {
   console.log('Recibida solicitud para guardar producto:', producto);
@@ -598,447 +543,117 @@ ipcMain.handle('guardar-producto', async (event, producto) => {
   });
 });
 
-// Registrar venta
-ipcMain.handle('registrar-venta', async (event, venta) => {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      db.run('BEGIN TRANSACTION');
-      db.run(
-        'INSERT INTO ventas (fecha, subtotal, iva, total, forma_pago, monto_recibido, cambio) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          venta.fecha,
-          venta.subtotal,
-          venta.iva,
-          venta.total,
-          venta.metodoPago,
-          venta.montoRecibido || null,
-          venta.cambio || null
-        ],
-        function(err) {
-          if (err) {
-            db.run('ROLLBACK');
-            console.error('Error al guardar venta:', err);
-            return reject(err);
-          }
-          const ventaId = this.lastID;
-          let productosActualizados = 0;
-          // Si no hay productos, commit y terminar
-          if (!venta.productos || venta.productos.length === 0) {
-            db.run('COMMIT');
-            return resolve({ id: ventaId });
-          }
-          // Insertar detalles de venta y actualizar stock
-          venta.productos.forEach(producto => {
-            db.run(
-              'INSERT INTO venta_detalles (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
-              [
-                ventaId,
-                producto.id,
-                producto.cantidad,
-                producto.precio,
-                producto.precio * producto.cantidad
-              ],
-              function(err) {
-                if (err) {
-                  db.run('ROLLBACK');
-                  console.error('Error al guardar detalle de venta:', err);
-                  return reject(err);
-                }
-                // Actualizar stock
-                db.run(
-                  'UPDATE productos SET cantidad = cantidad - ? WHERE id = ?',
-                  [producto.cantidad, producto.id],
-                  function(err) {
-                    if (err) {
-                      db.run('ROLLBACK');
-                      console.error('Error al actualizar stock:', err);
-                      return reject(err);
-                    }
-                    productosActualizados++;
-                    if (productosActualizados === venta.productos.length) {
-                      db.run('COMMIT');
-                      resolve({ id: ventaId });
-                    }
-                  }
-                );
-              }
-            );
-          });
-        }
-      );
-    });
-  });
-});
-
-// Manejar guardado de nuevo producto
-// Manejar adición de categorías
+// Manejador para agregar categoría
 ipcMain.handle('agregar-categoria', async (event, categoria) => {
   return new Promise((resolve, reject) => {
-    db.run(
-      'INSERT INTO categorias (nombre, descripcion) VALUES (?, ?)',
-      [categoria.nombre, categoria.descripcion],
-      function(err) {
-        if (err) return reject(err);
-        resolve({ id: this.lastID, ...categoria });
-      }
-    );
+    try {
+      const { nombre, descripcion } = categoria;
+      
+      // Preparar consulta SQL
+      const stmt = db.prepare(`
+        INSERT INTO categorias 
+        (nombre, descripcion) 
+        VALUES (?, ?)
+      `);
+      
+      // Ejecutar consulta
+      stmt.run(
+        nombre,
+        descripcion || '',
+        function(err) {
+          if (err) {
+            console.error('Error al guardar categoría:', err);
+            reject({ error: true, mensaje: `Error al guardar categoría: ${err.message}` });
+          } else {
+            console.log(`Categoría guardada con ID: ${this.lastID}`);
+            resolve({ 
+              success: true, 
+              mensaje: 'Categoría guardada correctamente', 
+              categoriaId: this.lastID
+            });
+          }
+        }
+      );
+      
+      // Finalizar statement
+      stmt.finalize();
+    } catch (error) {
+      console.error('Error en agregar-categoria:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
   });
 });
 
-// Manejar actualización de categorías
+// Actualizar categoría
 ipcMain.handle('actualizar-categoria', async (event, categoria) => {
   return new Promise((resolve, reject) => {
     db.run(
       'UPDATE categorias SET nombre = ?, descripcion = ? WHERE id = ?',
       [categoria.nombre, categoria.descripcion, categoria.id],
       function(err) {
-        if (err) return reject(err);
-        resolve({ changes: this.changes });
+        if (err) {
+          console.error('Error al actualizar categoría:', err);
+          reject({ error: true, mensaje: `Error al actualizar categoría: ${err.message}` });
+        } else {
+          resolve({ success: true, mensaje: 'Categoría actualizada correctamente' });
+        }
       }
     );
   });
 });
 
-ipcMain.handle('agregar-producto', async (event, producto) => {
-  console.log('Recibida solicitud para agregar producto:', producto);
-  
-  return new Promise((resolve, reject) => {
-    try {
-      // Normalizar nombres de propiedades
-      const codigo = producto.codigo || producto.codigo_barras;
-      const nombre = producto.nombre;
-      const descripcion = producto.descripcion;
-      const precio = producto.precio || producto.precio_venta;
-      const cantidad = producto.cantidad || producto.stock;
-      const talla = producto.talla;
-      const imagen = producto.imagen;
-      const fechaActual = new Date().toISOString();
-      
-      console.log('Datos normalizados del producto:', {
-        codigo, nombre, descripcion, precio, cantidad, talla, 
-        tieneImagen: !!imagen,
-        fechaActual
-      });
-      
-      // Verificar si el código ya existe
-      db.get('SELECT id FROM productos WHERE codigo = ?', [codigo], (err, row) => {
-        if (err) {
-          console.error('Error al verificar código duplicado:', err);
-          return reject(err);
-        }
-        
-        if (row) {
-          const errorMsg = `Ya existe un producto con el código: ${codigo}`;
-          console.log(errorMsg);
-          return reject(new Error(errorMsg));
-        }
-        
-        console.log('No se encontró código duplicado, procediendo a insertar...');
-        
-        // Si no existe, insertar el nuevo producto
-        const stmt = db.prepare(`
-          INSERT INTO productos 
-          (codigo, nombre, descripcion, precio, cantidad, talla, imagen, fecha_creacion, fecha_actualizacion) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        
-        stmt.run(
-          codigo, 
-          nombre, 
-          descripcion || '', 
-          parseFloat(precio) || 0, 
-          parseInt(cantidad) || 0,
-          talla || '',
-          imagen || null,
-          fechaActual,
-          fechaActual,
-          function(err) {
-            stmt.finalize();
-            
-            if (err) {
-              console.error('Error al insertar producto:', err);
-              return reject(err);
-            }
-            
-            const resultado = { 
-              id: this.lastID,
-              mensaje: 'Producto agregado correctamente',
-              producto: {
-                id: this.lastID,
-                codigo,
-                nombre,
-                descripcion,
-                precio: parseFloat(precio) || 0,
-                cantidad: parseInt(cantidad) || 0,
-                talla: talla || '',
-                imagen: imagen || null
-              }
-            };
-            
-            console.log('Producto insertado correctamente:', resultado);
-            resolve(resultado);
-          }
-        );
-      });
-    } catch (error) {
-      console.error('Error en el manejador agregar-producto:', error);
-      reject(error);
-    }
-  });
-});
-
-// Manejar cierre de la aplicación
-ipcMain.on('cerrar-app', () => {
-  app.quit();
-});
-
-// Manejar eventos de la aplicación
-app.whenReady().then(() => {
-  initializeDatabase();
-  createWindow();
-  
-  // En macOS es común volver a crear una ventana cuando se hace clic en el ícono del dock
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-  
-  // Manejar el cierre en macOS
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit();
-    }
-  });
-});
-
-// Este handler fue consolidado arriba y se eliminó para evitar duplicación
-
-// Manejador para actualizar un producto existente
-ipcMain.handle('actualizar-producto', async (event, producto) => {
-  return new Promise((resolve, reject) => {
-    const { id, codigo, nombre, descripcion, precio, cantidad, talla, imagen } = producto;
-    const fechaActual = new Date().toISOString();
-    
-    // Verificar si el código ya existe (excluyendo el producto actual)
-    db.get('SELECT id FROM productos WHERE codigo = ? AND id != ?', [codigo, id], (err, row) => {
-      if (err) return reject(err);
-      
-      if (row) {
-        return reject(new Error('Ya existe otro producto con este código'));
-      }
-      
-      // Construir la consulta dinámicamente
-      const params = [
-        codigo, 
-        nombre, 
-        descripcion || '', 
-        parseFloat(precio) || 0, 
-        parseInt(cantidad) || 0,
-        talla || '',
-        fechaActual
-      ];
-      
-      let sql = `
-        UPDATE productos 
-        SET 
-          codigo = ?, 
-          nombre = ?, 
-          descripcion = ?, 
-          precio = ?, 
-          cantidad = ?,
-          talla = ?,
-          fecha_actualizacion = ?
-      `;
-      
-      // Si hay una nueva imagen, la incluimos en la consulta
-      if (imagen) {
-        sql += ', imagen = ?';
-        params.push(imagen);
-      }
-      
-      sql += ' WHERE id = ?';
-      params.push(id);
-      
-      db.run(sql, params, function(err) {
-        if (err) return reject(err);
-        
-        // Obtener el producto actualizado para devolverlo
-        db.get('SELECT * FROM productos WHERE id = ?', [id], (err, productoActualizado) => {
-          if (err) return reject(err);
-          
-          resolve({ 
-            id,
-            mensaje: 'Producto actualizado correctamente',
-            producto: productoActualizado
-          });
-        });
-      });
-    });
-  });
-});
-
-// Manejador para eliminar un producto
-ipcMain.handle('eliminar-producto', async (event, id) => {
-  return new Promise((resolve, reject) => {
-    // Primero verificamos si el producto tiene ventas asociadas
-    db.get('SELECT COUNT(*) as count FROM venta_detalles WHERE producto_id = ?', [id], (err, row) => {
-      if (err) return reject(err);
-      
-      if (row && row.count > 0) {
-        return reject(new Error('No se puede eliminar el producto porque tiene ventas asociadas'));
-      }
-      
-      // Si no tiene ventas, procedemos a eliminar
-      db.run('DELETE FROM productos WHERE id = ?', [id], function(err) {
-        if (err) return reject(err);
-        
-        if (this.changes === 0) {
-          return reject(new Error('Producto no encontrado'));
-        }
-        
-        resolve({ 
-          success: true, 
-          mensaje: 'Producto eliminado correctamente',
-          id: id
-        });
-      });
-    });
-  });
-});
-
-// Manejar obtención de productos con búsqueda y filtrado
-ipcMain.handle('obtener-productos', async (event, { query = '', categoriaId = null }) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT p.*, c.nombre as categoria_nombre 
-      FROM productos p 
-      LEFT JOIN categorias c ON p.categoria_id = c.id 
-      WHERE 1=1
-    `;
-    const params = [];
-    
-    if (query) {
-      sql += ' AND (p.nombre LIKE ? OR p.descripcion LIKE ? OR p.codigo LIKE ?)';
-      const searchTerm = `%${query}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
-    }
-    
-    if (categoriaId) {
-      sql += ' AND p.categoria_id = ?';
-      params.push(categoriaId);
-    }
-    
-    sql += ' ORDER BY p.nombre';
-    
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        console.error('Error al obtener productos:', err);
-        return reject(err);
-      }
-      resolve(rows);
-    });
-  });
-});
-
-// Manejar obtención de categorías
+// Obtener categorías
 ipcMain.handle('obtener-categorias', async () => {
   return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM categorias ORDER BY nombre', [], (err, rows) => {
+    db.all('SELECT * FROM categorias ORDER BY nombre', (err, rows) => {
       if (err) {
         console.error('Error al obtener categorías:', err);
-        return reject(err);
+        reject({ error: true, mensaje: `Error al obtener categorías: ${err.message}` });
+      } else {
+        resolve(rows);
       }
-      resolve(rows);
     });
   });
 });
 
-// Manejador para obtener un producto por su ID
-ipcMain.handle('obtener-producto', async (event, id) => {
+// Verificar si existe una categoría
+ipcMain.handle('existe-categoria', async (event, { nombre, id }) => {
   return new Promise((resolve, reject) => {
-    db.get('SELECT * FROM productos WHERE id = ?', [id], (err, row) => {
-      if (err) reject(err);
-      else resolve(row || null);
-    });
-  });
-});
-
-// Manejador alternativo de guardadod de venta eliminado
-
-// Manejador para obtener el historial de ventas
-ipcMain.handle('obtener-ventas', async (event, { fechaInicio, fechaFin }) => {
-  return new Promise((resolve, reject) => {
-    const query = `
-      SELECT v.*, 
-             COUNT(vd.id) as total_productos,
-             SUM(vd.cantidad) as total_unidades
-      FROM ventas v
-      LEFT JOIN venta_detalles vd ON v.id = vd.venta_id
-      WHERE date(v.fecha) BETWEEN date(?) AND date(?)
-      GROUP BY v.id
-      ORDER BY v.fecha DESC
-    `;
+    // Si estamos editando, excluimos el ID actual
+    const query = id 
+      ? 'SELECT COUNT(*) as count FROM categorias WHERE nombre = ? AND id != ?'
+      : 'SELECT COUNT(*) as count FROM categorias WHERE nombre = ?';
     
-    db.all(query, [fechaInicio, fechaFin], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
-    });
-  });
-});
-
-// Manejador para obtener los detalles de una venta
-ipcMain.handle('obtener-detalles-venta', async (event, ventaId) => {
-  return new Promise((resolve, reject) => {
-    const query = `
-      SELECT vd.*, p.nombre as producto_nombre, p.codigo as producto_codigo
-      FROM venta_detalles vd
-      JOIN productos p ON vd.producto_id = p.id
-      WHERE vd.venta_id = ?
-    `;
+    const params = id ? [nombre, id] : [nombre];
     
-    db.all(query, [ventaId], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
+    db.get(query, params, (err, row) => {
+      if (err) {
+        console.error('Error al verificar categoría:', err);
+        reject({ error: true, mensaje: `Error al verificar categoría: ${err.message}` });
+      } else {
+        resolve({ existe: row.count > 0 });
+      }
     });
   });
 });
 
-// Manejador para actualizar el stock de un producto
-ipcMain.handle('actualizar-stock', async (event, { id, cantidad }) => {
-  return new Promise((resolve, reject) => {
-    // Primero verificamos que haya suficiente stock
-    db.get('SELECT cantidad FROM productos WHERE id = ?', [id], (err, producto) => {
-      if (err) return reject(err);
-      
-      if (!producto) {
-        return reject(new Error('Producto no encontrado'));
-      }
-      
-      const nuevoStock = (producto.cantidad || 0) + parseInt(cantidad);
-      
-      if (nuevoStock < 0) {
-        return reject(new Error('No hay suficiente stock disponible'));
-      }
-      
-      // Actualizamos el stock
-      db.run(
-        'UPDATE productos SET cantidad = ?, fecha_actualizacion = ? WHERE id = ?',
-        [nuevoStock, new Date().toISOString(), id],
-        function(err) {
-          if (err) return reject(err);
-          
-          if (this.changes === 0) {
-            return reject(new Error('No se pudo actualizar el stock'));
-          }
-          
-          resolve({ 
-            success: true, 
-            nuevoStock,
-            mensaje: 'Stock actualizado correctamente'
-          });
-        }
-      );
-    });
-  });
+// Eventos de aplicación
+app.on('ready', () => {
+  // Crear las tablas si no existen
+  initializeDatabase();
+  
+  // Crear ventana principal
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
+  }
 });
