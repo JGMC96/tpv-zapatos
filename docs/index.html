@@ -806,8 +806,16 @@
   <script src="./js/tpv-handler-parte2.js"></script>
   <script src="./js/tpv-handler-parte3.js"></script>
   <script src="./menu.js"></script>
+  <link rel="manifest" href="./manifest.json" />
+</head>
   <script src="renderer.js"></script>
-  
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(() => console.log("✅ Service Worker registrado"))
+        .catch((error) => console.log("❌ Error registrando Service Worker", error));
+    }
+  </script>
 <div style="margin-top: 2rem; text-align: center;">
   <a href="./menu.html" style="
     background-color: #795548;
