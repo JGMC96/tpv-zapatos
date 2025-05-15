@@ -1,29 +1,41 @@
-const CACHE_NAME = "tpv-cache-v1";
+const CACHE_NAME = 'tpv-zapatos-cache-v1';
 const urlsToCache = [
-  "./",
-  "./index.html",
-  "./menu.html",
-  "./productos.html",
-  "./historial.html",
-  "./configuracion.html",
-  "./style.css",
-  "./js/menu.js",
-  "./js/tpv-handler.js",
-  "./js/productos-handler.js",
-  "./js/configuracion-handler.js"
+  './',
+  './index.html',
+  './style.css',
+  './manifest.json',
+  './assets/icon-192.png',
+  './assets/icon-512.png'
 ];
 
-self.addEventListener("install", (event) => {
+// Instalación del Service Worker
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(urlsToCache);
     })
   );
 });
 
-self.addEventListener("fetch", (event) => {
+// Activación y limpieza de cachés antiguas
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      )
+    )
+  );
+});
+
+// Intercepta las peticiones y responde desde caché si está disponible
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
+    caches.match(event.request).then(response => {
       return response || fetch(event.request);
     })
   );

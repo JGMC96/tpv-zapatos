@@ -813,10 +813,10 @@
 </head>
   <script src="renderer.js"></script>
   <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("✅ Service Worker registrado"))
-        .catch((error) => console.log("❌ Error registrando Service Worker", error));
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => console.log('✅ Service Worker registrado', reg))
+        .catch(err => console.error('❌ Error al registrar SW:', err));
     }
   </script>
 <div style="margin-top: 2rem; text-align: center;">
