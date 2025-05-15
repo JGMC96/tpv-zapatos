@@ -819,6 +819,33 @@
         .catch(err => console.error('❌ Error al registrar SW:', err));
     }
   </script>
+<button id="btn-instalar" style="display:none; position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 10px 20px; font-size: 16px;">📲 Instalar App</button>
+
+<script>
+  let deferredPrompt;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // Evita que salga el banner automático
+    deferredPrompt = e;
+    document.getElementById('btn-instalar').style.display = 'block';
+  });
+
+  document.getElementById('btn-instalar').addEventListener('click', () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(choiceResult => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('✅ Usuario aceptó instalar la app');
+        } else {
+          console.log('❌ Usuario rechazó la instalación');
+        }
+        deferredPrompt = null;
+        document.getElementById('btn-instalar').style.display = 'none';
+      });
+    }
+  });
+</script>
+
 <div style="margin-top: 2rem; text-align: center;">
   <a href="./menu.html" style="
     background-color: #795548;
