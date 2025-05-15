@@ -250,6 +250,354 @@ ipcMain.on('navegar-a', (event, archivo) => {
   cargarVentana(archivo);
 });
 
+// Manejador para buscar productos
+ipcMain.handle('buscar-productos', async (event, { termino }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Buscar productos mientras se escribe
+      const query = `
+        SELECT p.*, c.nombre as categoria_nombre 
+        FROM productos p
+        LEFT JOIN categorias c ON p.categoria_id = c.id
+        WHERE 
+          p.nombre LIKE ? OR 
+          p.codigo LIKE ? OR 
+          p.descripcion LIKE ?
+        ORDER BY p.nombre
+        LIMIT 20
+      `;
+      
+      const searchTerm = `%${termino}%`;
+      
+      db.all(query, [searchTerm, searchTerm, searchTerm], (err, rows) => {
+        if (err) {
+          console.error('Error al buscar productos:', err);
+          reject({ error: true, mensaje: `Error al buscar productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en buscar-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener un producto por ID
+ipcMain.handle('obtener-producto', async (event, { id }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.get('SELECT * FROM productos WHERE id = ?', [id], (err, row) => {
+        if (err) {
+          console.error('Error al obtener producto:', err);
+          reject({ error: true, mensaje: `Error al obtener producto: ${err.message}` });
+        } else {
+          resolve(row);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-producto:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener todos los productos
+ipcMain.handle('obtener-productos', async (event) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.all('SELECT * FROM productos ORDER BY nombre', (err, rows) => {
+        if (err) {
+          console.error('Error al obtener productos:', err);
+          reject({ error: true, mensaje: `Error al obtener productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para registrar una venta
+ipcMain.handle('registrar-venta', async (event, venta) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.serialize(() => {
+        // Comenzar transacción
+        db.run('BEGIN TRANSACTION');
+        
+        // Insertar la cabecera de la venta
+        const sqlVenta = `
+          INSERT INTO ventas (
+            fecha, subtotal, descuento, iva, total, 
+            forma_pago, monto_recibido, cambio
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        db.run(
+          sqlVenta, 
+          [
+            venta.fecha, 
+            venta.subtotal, 
+            venta.descuento, 
+            venta.iva, 
+            venta.total, 
+            venta.metodoPago, 
+            venta.montoRecibido, 
+            venta.cambio
+          ], 
+          function(err) {
+            if (err) {
+              console.error('Error al insertar venta:', err);
+              db.run('ROLLBACK');
+              reject({ error: true, mensaje: `Error al insertar venta: ${err.message}` });
+              return;
+            }
+            
+            const ventaId = this.lastID;
+            let detallesInsertados = 0;
+            
+            // Insertar detalles de la venta
+            venta.items.forEach(item => {
+              const sqlDetalle = `
+                INSERT INTO venta_detalles (
+                  venta_id, producto_id, cantidad, precio_unitario, subtotal
+                ) VALUES (?, ?, ?, ?, ?)
+              `;
+              
+              db.run(
+                sqlDetalle,
+                [
+                  ventaId,
+                  item.id,
+                  item.cantidad,
+                  item.precio,
+                  item.subtotal
+                ],
+                function(err) {
+                  if (err) {
+                    console.error('Error al insertar detalle de venta:', err);
+                    db.run('ROLLBACK');
+                    reject({ error: true, mensaje: `Error al insertar detalle de venta: ${err.message}` });
+                    return;
+                  }
+                  
+                  // Actualizar stock del producto
+                  const sqlUpdateStock = `
+                    UPDATE productos 
+                    SET cantidad = cantidad - ? 
+                    WHERE id = ?
+                  `;
+                  
+                  db.run(sqlUpdateStock, [item.cantidad, item.id], function(err) {
+                    if (err) {
+                      console.error('Error al actualizar stock:', err);
+                      db.run('ROLLBACK');
+                      reject({ error: true, mensaje: `Error al actualizar stock: ${err.message}` });
+                      return;
+                    }
+                    
+                    detallesInsertados++;
+                    
+                    // Si se han procesado todos los items, finalizar la transacción
+                    if (detallesInsertados === venta.items.length) {
+                      db.run('COMMIT', function(err) {
+                        if (err) {
+                          console.error('Error al finalizar la transacción:', err);
+                          db.run('ROLLBACK');
+                          reject({ error: true, mensaje: `Error al finalizar la transacción: ${err.message}` });
+                          return;
+                        }
+                        
+                        resolve({ success: true, ventaId: ventaId });
+                      });
+                    }
+                  });
+                }
+              );
+            });
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error en registrar-venta:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para imprimir un ticket
+ipcMain.handle('imprimir-ticket', async (event, { ventaId }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Obtener datos de la venta
+      const sqlVenta = `
+        SELECT * FROM ventas 
+        WHERE id = ?
+      `;
+      
+      db.get(sqlVenta, [ventaId], (err, venta) => {
+        if (err) {
+          console.error('Error al obtener venta:', err);
+          reject({ error: true, mensaje: `Error al obtener venta: ${err.message}` });
+          return;
+        }
+        
+        // Obtener detalles de la venta
+        const sqlDetalles = `
+          SELECT vd.*, p.nombre, p.codigo 
+          FROM venta_detalles vd
+          INNER JOIN productos p ON vd.producto_id = p.id
+          WHERE vd.venta_id = ?
+        `;
+        
+        db.all(sqlDetalles, [ventaId], (err, detalles) => {
+          if (err) {
+            console.error('Error al obtener detalles de venta:', err);
+            reject({ error: true, mensaje: `Error al obtener detalles de venta: ${err.message}` });
+            return;
+          }
+          
+          resolve({ success: true, venta, detalles });
+        });
+      });
+    } catch (error) {
+      console.error('Error en imprimir-ticket:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para buscar productos
+ipcMain.handle('buscar-productos', async (event, { termino }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Buscar productos mientras se escribe
+      const query = `
+        SELECT p.*, c.nombre as categoria_nombre 
+        FROM productos p
+        LEFT JOIN categorias c ON p.categoria_id = c.id
+        WHERE 
+          p.nombre LIKE ? OR 
+          p.codigo LIKE ? OR 
+          p.descripcion LIKE ?
+        ORDER BY p.nombre
+        LIMIT 20
+      `;
+      
+      const searchTerm = `%${termino}%`;
+      
+      db.all(query, [searchTerm, searchTerm, searchTerm], (err, rows) => {
+        if (err) {
+          console.error('Error al buscar productos:', err);
+          reject({ error: true, mensaje: `Error al buscar productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en buscar-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener un producto por ID
+ipcMain.handle('obtener-producto', async (event, { id }) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.get('SELECT * FROM productos WHERE id = ?', [id], (err, row) => {
+        if (err) {
+          console.error('Error al obtener producto:', err);
+          reject({ error: true, mensaje: `Error al obtener producto: ${err.message}` });
+        } else {
+          resolve(row);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-producto:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para obtener todos los productos
+ipcMain.handle('obtener-productos', async (event) => {
+  return new Promise((resolve, reject) => {
+    try {
+      db.all('SELECT * FROM productos ORDER BY nombre', (err, rows) => {
+        if (err) {
+          console.error('Error al obtener productos:', err);
+          reject({ error: true, mensaje: `Error al obtener productos: ${err.message}` });
+        } else {
+          resolve(rows);
+        }
+      });
+    } catch (error) {
+      console.error('Error en obtener-productos:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
+// Manejador para guardar producto (nuevo)
+ipcMain.handle('guardar-producto', async (event, producto) => {
+  console.log('Recibida solicitud para guardar producto:', producto);
+  
+  return new Promise((resolve, reject) => {
+    try {
+      const { nombre, descripcion, precio, cantidad, codigo, categoriaId } = producto;
+      
+      // Generar código único si no se proporciona
+      let codigoFinal = codigo;
+      if (!codigoFinal) {
+        codigoFinal = `ZAP-${Date.now().toString().slice(-6)}`;
+      }
+      
+      // Preparar consulta SQL
+      const stmt = db.prepare(`
+        INSERT INTO productos 
+        (codigo, nombre, descripcion, precio, cantidad, categoria_id) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      
+      // Ejecutar consulta
+      stmt.run(
+        codigoFinal,
+        nombre,
+        descripcion || '',
+        precio || 0,
+        cantidad || 0,
+        categoriaId || null,
+        function(err) {
+          if (err) {
+            console.error('Error al guardar producto:', err);
+            reject({ error: true, mensaje: `Error al guardar producto: ${err.message}` });
+          } else {
+            console.log(`Producto guardado con ID: ${this.lastID}`);
+            resolve({ 
+              success: true, 
+              mensaje: 'Producto guardado correctamente', 
+              productoId: this.lastID,
+              codigo: codigoFinal
+            });
+          }
+        }
+      );
+      
+      // Finalizar statement
+      stmt.finalize();
+    } catch (error) {
+      console.error('Error en guardar-producto:', error);
+      reject({ error: true, mensaje: `Error: ${error.message}` });
+    }
+  });
+});
+
 // Registrar venta
 ipcMain.handle('registrar-venta', async (event, venta) => {
   return new Promise((resolve, reject) => {

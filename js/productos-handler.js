@@ -380,14 +380,32 @@ const ProductosHandler = {
             } else if (key === 'categoriaId' && value) {
                 producto[key] = parseInt(value);
             } else {
-                producto[key] = value;
+                // Asegurarse de que el valor sea serializable (string, number, boolean, null)
+                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                    producto[key] = value;
+                } else {
+                    // Si es otro tipo de dato, convertirlo a string
+                    producto[key] = String(value);
+                }
             }
         });
         
+        // Crear un objeto serializable (sin referencias a DOM u otros objetos complejos)
+        const productoSerializable = {};
+        // Incluir solo propiedades serializables
+        const propiedadesSeguras = ['id', 'nombre', 'descripcion', 'precio', 'cantidad', 'categoriaId', 'codigo'];
+        propiedadesSeguras.forEach(prop => {
+            if (prop in producto) {
+                productoSerializable[prop] = producto[prop];
+            }
+        });
+        
+        console.log('Producto serializable a enviar:', productoSerializable);
+        
         if (window.ipcRenderer) {
-            const action = producto.id ? 'actualizar-producto' : 'guardar-producto';
+            const action = productoSerializable.id ? 'actualizar-producto' : 'guardar-producto';
             
-            window.ipcRenderer.invoke(action, producto)
+            window.ipcRenderer.invoke(action, productoSerializable)
                 .then(result => {
                     alert(result.mensaje || 'Producto guardado correctamente');
                     this.elements.modalProducto.style.display = 'none';
