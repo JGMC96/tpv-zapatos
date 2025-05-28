@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5" id="checkoutApp">
+    <h1>{{ title }}</h1>
+
+    {% if cart and cart.items %}
+    <div class="row">
+        {# Order Summary Column #}
+        <div class="col-md-5 order-md-2 mb-4">
+            <h4 class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">Your Cart</span>
+                <span class="badge badge-secondary badge-pill">{{ cart.total_items_count }}</span>
+            </h4>
+            <ul class="list-group mb-3">
+                {% for item in cart.items %}
+                <li class="list-group-item d-flex justify-content-between lh-condensed">
+                    <div>
+                        <h6 class="my-0">{{ item.name }} (x{{ item.quantity }})</h6>
+                        <small class="text-muted">SKU: {{ item.sku }}</small>
+                    </div>
+                    <span class="text-muted">${{ item.subtotal }}</span>
+                </li>
+                {% endfor %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <strong>Total (USD)</strong>
+                    <strong id="cartTotalAmountDisplay">${{ cart.cart_total_amount }}</strong>
+                </li>
+            </ul>
+        </div>
+
+        {# Checkout Form Column #}
+        <div class="col-md-7 order-md-1">
+            <h4 class="mb-3">Billing & Shipping Information</h4>
+            <form id="checkoutForm" novalidate>
+                {# Customer Information #}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_email">Email Address</label>
+                        <input type="email" class="form-control" id="customer_email" name="customer_email" placeholder="you@example.com" required>
+                        <div class="invalid-feedback">
+                            Please enter a valid email address.
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_phone">Phone Number <span class="text-muted">(Optional)</span></label>
+                        <input type="tel" class="form-control" id="customer_phone" name="customer_phone" placeholder="123-456-7890">
+                    </div>
+                </div>
+
+                {# Shipping Address #}
+                {# Delivery Method Selection #}
+                <h5 class="mb-3 mt-4">Delivery Method</h5>
+                <div class="d-block my-3">
+                    <div class="custom-control custom-radio">
+                        <input id="homeDelivery" name="delivery_method" type="radio" class="custom-control-input" value="HOME_DELIVERY" checked required>
+                        <label class="custom-control-label" for="homeDelivery">Home Delivery</label>
+                    </div>
+                    <div class="custom-control custom-radio">
+                        <input id="storePickup" name="delivery_method" type="radio" class="custom-control-input" value="IN_STORE_PICKUP" required>
+                        <label class="custom-control-label" for="storePickup">In-Store Pickup</label>
+                    </div>
+                </div>
+
+                {# Shipping Address - shown if Home Delivery is selected #}
+                <div id="shippingAddressFields">
+                    <h5 class="mb-3 mt-3">Shipping Address</h5>
+                    <div class="mb-3">
+                        <label for="shipping_address_line1">Address Line 1</label>
+                        <input type="text" class="form-control" id="shipping_address_line1" name="shipping_address_line1" placeholder="1234 Main St">
+                        <div class="invalid-feedback">
+                            Please enter your shipping address for home delivery.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="shipping_address_line2">Address Line 2 <span class="text-muted">(Optional)</span></label>
+                        <input type="text" class="form-control" id="shipping_address_line2" name="shipping_address_line2" placeholder="Apartment or suite">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-5 mb-3">
+                            <label for="shipping_city">City</label>
+                            <input type="text" class="form-control" id="shipping_city" name="shipping_city" placeholder="">
+                            <div class="invalid-feedback">
+                                City is required for home delivery.
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="shipping_state">State/Province</label>
+                            <input type="text" class="form-control" id="shipping_state" name="shipping_state" placeholder="">
+                             <div class="invalid-feedback">
+                                State/Province is required for home delivery.
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="shipping_postal_code">Postal Code</label>
+                            <input type="text" class="form-control" id="shipping_postal_code" name="shipping_postal_code" placeholder="">
+                            <div class="invalid-feedback">
+                                Postal code required for home delivery.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shipping_country">Country</label>
+                        <input type="text" class="form-control" id="shipping_country" name="shipping_country" placeholder="United States">
+                         <div class="invalid-feedback">
+                            Country is required for home delivery.
+                        </div>
+                    </div>
+                </div> {# End #shippingAddressFields #}
+
+                {# Pickup Instructions - shown if In-Store Pickup is selected #}
+                <div id="pickupInstructionsFields" style="display: none;">
+                    <h5 class="mb-3 mt-3">Pickup Information</h5>
+                    <p>You can pick up your order at: <br><strong>My Awesome TPV Store<br>123 Main Street, Anytown, USA</strong></p>
+                    <p class="text-muted">We will notify you via email ({{ "{{ order.customer_email if order else 'your email' }}" }}) when your order is ready for pickup.</p>
+                    <input type="hidden" name="pickup_instructions" id="pickup_instructions" value="Pickup at My Awesome TPV Store, 123 Main Street, Anytown, USA. Notification will be sent.">
+                </div>
+
+
+                <hr class="mb-4">
+
+                {# Payment Section Placeholder #}
+                <h4 class="mb-3">Payment</h4>
+                <div class="alert alert-info" role="alert">
+                    Payment processing is coming soon! For now, clicking "Place Order" will simulate order creation.
+                </div>
+                {# Actual payment fields (e.g., Stripe Elements, PayPal button) would go here #}
+
+                <hr class="mb-4">
+                <button class="btn btn-primary btn-lg btn-block" type="submit" id="placeOrderBtn">Place Order</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <p class="lead">Your cart is empty, or there was an issue loading your cart.</p>
+        <a href="{{ url_for('ecommerce_bp.product_list') }}" class="btn btn-primary">Start Shopping</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const checkoutForm = document.getElementById('checkoutForm');
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    const shippingAddressFieldsDiv = document.getElementById('shippingAddressFields');
+    const pickupInstructionsFieldsDiv = document.getElementById('pickupInstructionsFields');
+    const shippingAddressRequiredFields = [
+        'shipping_address_line1', 'shipping_city', 'shipping_state', 'shipping_postal_code', 'shipping_country'
+    ];
+
+    // Toggle address/pickup fields based on delivery method
+    document.querySelectorAll('input[name="delivery_method"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'HOME_DELIVERY') {
+                shippingAddressFieldsDiv.style.display = 'block';
+                pickupInstructionsFieldsDiv.style.display = 'none';
+                shippingAddressRequiredFields.forEach(fieldId => {
+                    document.getElementById(fieldId).required = true;
+                });
+            } else if (this.value === 'IN_STORE_PICKUP') {
+                shippingAddressFieldsDiv.style.display = 'none';
+                pickupInstructionsFieldsDiv.style.display = 'block';
+                 shippingAddressRequiredFields.forEach(fieldId => {
+                    document.getElementById(fieldId).required = false;
+                    // Optionally clear values or remove 'was-validated' if fields were touched
+                    // document.getElementById(fieldId).value = ''; 
+                });
+            }
+        });
+    });
+    // Initial check on page load for delivery method
+    if (document.querySelector('input[name="delivery_method"]:checked').value === 'IN_STORE_PICKUP') {
+        shippingAddressFieldsDiv.style.display = 'none';
+        pickupInstructionsFieldsDiv.style.display = 'block';
+        shippingAddressRequiredFields.forEach(fieldId => {
+            document.getElementById(fieldId).required = false;
+        });
+    } else {
+         shippingAddressRequiredFields.forEach(fieldId => {
+            document.getElementById(fieldId).required = true;
+        });
+    }
+
+
+    checkoutForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Set required attributes based on delivery method before validation
+        const selectedDeliveryMethod = document.querySelector('input[name="delivery_method"]:checked').value;
+        if (selectedDeliveryMethod === 'HOME_DELIVERY') {
+            shippingAddressRequiredFields.forEach(fieldId => {
+                document.getElementById(fieldId).required = true;
+            });
+        } else {
+            shippingAddressRequiredFields.forEach(fieldId => {
+                document.getElementById(fieldId).required = false;
+            });
+        }
+
+
+        // Basic Bootstrap validation (adds 'was-validated' class to show feedback)
+        if (checkoutForm.checkValidity() === false) {
+            checkoutForm.classList.add('was-validated');
+            return;
+        }
+        checkoutForm.classList.add('was-validated'); // Show validation state even if all good initially
+
+        // Disable button to prevent multiple submissions
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Placing Order...';
+
+        const formData = new FormData(checkoutForm);
+        const orderData = {};
+        formData.forEach((value, key) => {
+            orderData[key] = value;
+        });
+        
+        // Cart data is not in the form, it's in the session on the server.
+        // The server will use get_cart_details() or similar.
+
+        try {
+            const response = await fetch('/shop/api/checkout/place_order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(orderData) // Send form data as JSON
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Redirect to order confirmation page (to be created)
+                // For now, show success message and redirect to a placeholder or shop home
+                showGlobalFlashMessage('Order placed successfully! Sale ID: ' + result.sale_id, 'success', '#checkoutApp');
+                // Clear client-side cart count if needed, though session will be cleared server-side
+                if (typeof updateMiniCartCount === 'function') {
+                    updateMiniCartCount(0); 
+                }
+                // Redirect after a short delay to allow user to see message
+                setTimeout(() => {
+                    // Replace with actual order confirmation page URL when available
+                    window.location.href = `/shop/order_confirmation/${result.sale_id}`; 
+                }, 2000);
+            } else {
+                showGlobalFlashMessage(result.message || 'Failed to place order. Please try again.', 'danger', '#checkoutApp');
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.textContent = 'Place Order';
+            }
+        } catch (error) {
+            console.error('Error placing order:', error);
+            showGlobalFlashMessage('An error occurred while placing your order. Please try again.', 'danger', '#checkoutApp');
+            placeOrderBtn.disabled = false;
+            placeOrderBtn.textContent = 'Place Order';
+        }
+    });
+});
+</script>
+{% endblock %}

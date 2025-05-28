@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h2 class="mb-0">Thank You for Your Order!</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead">Your order has been placed successfully.</p>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>Order Details:</h4>
+                    <ul class="list-unstyled">
+                        <li><strong>Order Number:</strong> #{{ sale.id }}</li>
+                        <li><strong>Order Date:</strong> {{ sale.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</li>
+                        <li><strong>Order Status:</strong> <span class="badge badge-info">{{ sale.order_status.replace('_', ' ')|capitalize }}</span></li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h4>Customer Information:</h4>
+                    <ul class="list-unstyled">
+                        <li><strong>Email:</strong> {{ sale.customer_email if sale.customer_email else 'N/A' }}</li>
+                        {% if sale.customer_phone %}
+                        <li><strong>Phone:</strong> {{ sale.customer_phone }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <h4>Shipping Address:</h4>
+                {% if sale.shipping_address_line1 %}
+                    <address>
+                        {{ sale.shipping_address_line1 }}<br>
+                        {% if sale.shipping_address_line2 %}{{ sale.shipping_address_line2 }}<br>{% endif %}
+                        {{ sale.shipping_city }}, {{ sale.shipping_state }} {{ sale.shipping_postal_code }}<br>
+                        {{ sale.shipping_country }}
+                    </address>
+                {% else %}
+                    <p>Shipping address not provided (e.g., for digital goods or POS pickup).</p>
+                {% endif %}
+            </div>
+
+            <h4>Order Summary:</h4>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Product</th>
+                            <th class="text-center">Quantity</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in sale.items %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-right">${{ "%.2f"|format(item.price_at_sale) }}</td>
+                            <td class="text-right">${{ "%.2f"|format(item.subtotal) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="3" class="text-right">Subtotal:</th>
+                            <td class="text-right">${{ "%.2f"|format(sale.total_amount) }}</td>
+                        </tr>
+                        <tr>
+                            <th colspan="3" class="text-right">Shipping:</th>
+                            <td class="text-right">$0.00 <small class="text-muted">(Static for now)</small></td>
+                        </tr>
+                        {% if sale.discount_amount > 0 %}
+                        <tr>
+                            <th colspan="3" class="text-right">Discount:</th>
+                            <td class="text-right">-${{ "%.2f"|format(sale.discount_amount) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if sale.tax_amount > 0 %} {# Assuming tax is included in final_amount if applied at checkout #}
+                        <tr>
+                            <th colspan="3" class="text-right">Tax:</th>
+                            <td class="text-right">${{ "%.2f"|format(sale.tax_amount) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="font-weight-bold">
+                            <th colspan="3" class="text-right">Total Paid:</th>
+                            <td class="text-right">${{ "%.2f"|format(sale.final_amount) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <p class="text-center">
+                We will send updates regarding your order to <strong>{{ sale.customer_email if sale.customer_email else 'your email' }}</strong>.
+            </p>
+
+            <div class="text-center mt-4">
+                <a href="{{ url_for('ecommerce_bp.product_list') }}" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-circle" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8m15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-4.5-.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5z"/>
+                    </svg>
+                    Continue Shopping
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

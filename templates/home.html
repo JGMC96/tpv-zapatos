@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Welcome to the TPV Application!</h1>
+    <p class="lead">This is the main user interface for managing products and categories.</p>
+    <hr class="my-4">
+    <p>Use the navigation bar to manage different parts of the application.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('category_bp.list_categories_ui') }}" role="button">Manage Categories</a>
+    <a class="btn btn-secondary btn-lg" href="{{ url_for('product_bp.list_products_ui') }}" role="button">Manage Products</a>
+</div>
+{% endblock %}

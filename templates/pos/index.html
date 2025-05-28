@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Point of Sale - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" id="posApp">
+    <h1>Point of Sale</h1>
+    
+    <div class="row">
+        {# Product Selection Area - Left Side #}
+        <div class="col-md-7">
+            <h4>Products</h4>
+            <div class="form-group">
+                <input type="text" class="form-control" id="productSearch" placeholder="Search products by name or SKU...">
+            </div>
+            <div id="productList" class="list-group" style="max-height: 500px; overflow-y: auto;">
+                {# Products will be loaded here by JavaScript #}
+                <p class="text-muted">Type to search for products...</p>
+            </div>
+        </div>
+
+        {# Current Sale (Cart) and Payment Area - Right Side #}
+        <div class="col-md-5">
+            <h4>Current Sale</h4>
+            <div id="currentSaleItems" class="list-group mb-3" style="min-height: 200px; max-height: 350px; overflow-y: auto; border: 1px solid #eee; padding: 10px;">
+                {# Sale items will be added here by JavaScript #}
+                <p class="text-center text-muted" id="emptyCartMessage">Cart is empty</p>
+            </div>
+
+            <div class="totals-section mb-3">
+                <div class="form-group row">
+                    <label for="subtotalAmount" class="col-sm-4 col-form-label">Subtotal:</label>
+                    <div class="col-sm-8">
+                        <input type="text" readonly class="form-control-plaintext text-right" id="subtotalAmount" value="0.00">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label for="discountAmountInput" class="col-sm-4 col-form-label">Discount (-):</label>
+                    <div class="col-sm-8">
+                        <input type="number" class="form-control text-right" id="discountAmountInput" value="0.00" step="0.01" min="0">
+                    </div>
+                </div>
+                 <div class="form-group row">
+                    <label for="taxAmountInput" class="col-sm-4 col-form-label">Tax (+):</label>
+                    <div class="col-sm-8">
+                        <input type="number" class="form-control text-right" id="taxAmountInput" value="0.00" step="0.01" min="0">
+                    </div>
+                </div>
+                <hr>
+                <div class="form-group row font-weight-bold">
+                    <label for="finalAmount" class="col-sm-4 col-form-label">Total:</label>
+                    <div class="col-sm-8">
+                        <input type="text" readonly class="form-control-plaintext text-right" id="finalAmount" value="0.00" style="font-size: 1.2em;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-section">
+                <h4>Payment</h4>
+                <div class="form-group">
+                    <label for="paymentType">Payment Type</label>
+                    <select class="form-control" id="paymentType">
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group" id="transactionIdGroup" style="display: none;">
+                    <label for="transactionId">Transaction ID (Optional)</label>
+                    <input type="text" class="form-control" id="transactionId" placeholder="Enter card transaction ID">
+                </div>
+                <button type="button" class="btn btn-success btn-block btn-lg" id="processSaleBtn">Process Sale</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Basic JavaScript for dynamic interactions - to be expanded #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const productSearchInput = document.getElementById('productSearch');
+    const productListDiv = document.getElementById('productList');
+    const currentSaleItemsDiv = document.getElementById('currentSaleItems');
+    const subtotalAmountDisplay = document.getElementById('subtotalAmount');
+    const discountAmountInput = document.getElementById('discountAmountInput');
+    const taxAmountInput = document.getElementById('taxAmountInput');
+    const finalAmountDisplay = document.getElementById('finalAmount');
+    const paymentTypeSelect = document.getElementById('paymentType');
+    const transactionIdGroup = document.getElementById('transactionIdGroup');
+    const processSaleBtn = document.getElementById('processSaleBtn');
+    const emptyCartMessage = document.getElementById('emptyCartMessage');
+
+    let cart = []; // Array to hold { product_id, name, price, quantity, image_url }
+
+    // --- Product Search ---
+    productSearchInput.addEventListener('keyup', async function(e) {
+        const query = e.target.value.toLowerCase();
+        if (query.length < 2 && query.length !== 0) { // Minimum 2 chars to search, or clear if empty
+            productListDiv.innerHTML = '<p class="text-muted">Type at least 2 characters to search...</p>';
+            return;
+        }
+        if (query.length === 0) {
+            productListDiv.innerHTML = '<p class="text-muted">Type to search for products...</p>';
+            return;
+        }
+
+        // Fetch products from existing API endpoint
+        // Adjust the URL as per your actual API endpoint for products
+        try {
+            // Using the general products API endpoint. 
+            // Consider adding query parameters like /products?q=query if supported by your API.
+            const response = await fetch(`/products?search=${encodeURIComponent(query)}`); // Assuming /products supports a 'search' query param
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const products = await response.json();
+            
+            productListDiv.innerHTML = ''; // Clear previous results
+            if (products.length === 0) {
+                productListDiv.innerHTML = '<p class="text-muted">No products found.</p>';
+            } else {
+                products.forEach(product => {
+                    // Ensure product price is a number
+                    const price = parseFloat(product.price);
+                    if (isNaN(price)) {
+                        console.error('Invalid price for product:', product);
+                        return; // Skip this product or handle error appropriately
+                    }
+
+                    const itemHtml = `
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center add-to-cart" 
+                           data-product-id="${product.id}" 
+                           data-name="${product.name}" 
+                           data-price="${price.toFixed(2)}"
+                           data-sku="${product.sku}"
+                           data-image-url="${product.images && product.images.length > 0 ? (product.images.find(img => img.is_default) || product.images[0]).image_url : '/static/images/default_product.png'}">
+                            <div>
+                                <h6 class="my-0">${product.name} <small class="text-muted">(${product.sku})</small></h6>
+                                <small class="text-muted">${product.description ? product.description.substring(0,50)+'...' : ''}</small>
+                            </div>
+                            <span class="text-success font-weight-bold">$${price.toFixed(2)}</span>
+                        </a>`;
+                    productListDiv.insertAdjacentHTML('beforeend', itemHtml);
+                });
+            }
+        } catch (error) {
+            console.error("Failed to fetch products:", error);
+            productListDiv.innerHTML = '<p class="text-danger">Error fetching products. Check console.</p>';
+        }
+    });
+
+    // --- Cart Management ---
+    productListDiv.addEventListener('click', function(e) {
+        e.preventDefault();
+        const productLink = e.target.closest('.add-to-cart');
+        if (productLink) {
+            const productId = parseInt(productLink.dataset.productId);
+            const name = productLink.dataset.name;
+            const price = parseFloat(productLink.dataset.price);
+            const imageUrl = productLink.dataset.imageUrl;
+
+            const existingItem = cart.find(item => item.product_id === productId);
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({ product_id: productId, name: name, price: price, quantity: 1, image_url: imageUrl });
+            }
+            renderCart();
+            updateTotals();
+        }
+    });
+
+    function renderCart() {
+        currentSaleItemsDiv.innerHTML = ''; // Clear cart display
+        if (cart.length === 0) {
+            currentSaleItemsDiv.innerHTML = '<p class="text-center text-muted" id="emptyCartMessage">Cart is empty</p>';
+            return;
+        }
+
+        cart.forEach((item, index) => {
+            const itemHtml = `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <img src="${item.image_url || '/static/images/default_product.png'}" alt="${item.name}" style="width: 30px; height: 30px; margin-right: 10px; border-radius: 3px;">
+                        ${item.name} (x${item.quantity})
+                    </div>
+                    <div>
+                        <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ml-2 cart-quantity-decrease" data-index="${index}">-</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ml-1 cart-quantity-increase" data-index="${index}">+</button>
+                        <button type="button" class="btn btn-sm btn-danger ml-2 cart-remove-item" data-index="${index}">&times;</button>
+                    </div>
+                </div>`;
+            currentSaleItemsDiv.insertAdjacentHTML('beforeend', itemHtml);
+        });
+    }
+    
+    currentSaleItemsDiv.addEventListener('click', function(e) {
+        const target = e.target;
+        const itemIndex = parseInt(target.dataset.index);
+
+        if (target.classList.contains('cart-quantity-decrease')) {
+            cart[itemIndex].quantity--;
+            if (cart[itemIndex].quantity <= 0) {
+                cart.splice(itemIndex, 1); // Remove item if quantity is 0 or less
+            }
+        } else if (target.classList.contains('cart-quantity-increase')) {
+            cart[itemIndex].quantity++;
+        } else if (target.classList.contains('cart-remove-item')) {
+            cart.splice(itemIndex, 1); // Remove item from cart
+        }
+        renderCart();
+        updateTotals();
+    });
+
+
+    // --- Totals Calculation ---
+    function updateTotals() {
+        let subtotal = 0;
+        cart.forEach(item => {
+            subtotal += item.price * item.quantity;
+        });
+        subtotalAmountDisplay.value = subtotal.toFixed(2);
+
+        const discount = parseFloat(discountAmountInput.value) || 0;
+        const tax = parseFloat(taxAmountInput.value) || 0;
+        
+        if (discount > subtotal && subtotal > 0) { // Prevent discount from exceeding subtotal if cart not empty
+            discountAmountInput.value = subtotal.toFixed(2);
+             flashMessage('Discount cannot exceed subtotal.', 'warning'); // Simple flash
+        }
+
+
+        const finalTotal = subtotal - (parseFloat(discountAmountInput.value) || 0) + tax;
+        finalAmountDisplay.value = finalTotal.toFixed(2);
+    }
+
+    discountAmountInput.addEventListener('input', updateTotals);
+    taxAmountInput.addEventListener('input', updateTotals);
+    
+    // --- Payment Type ---
+    paymentTypeSelect.addEventListener('change', function() {
+        if (this.value === 'card') {
+            transactionIdGroup.style.display = 'block';
+        } else {
+            transactionIdGroup.style.display = 'none';
+        }
+    });
+
+    // --- Process Sale ---
+    processSaleBtn.addEventListener('click', async function() {
+        if (cart.length === 0) {
+            flashMessage('Cannot process an empty sale.', 'warning');
+            return;
+        }
+
+        const saleData = {
+            items: cart.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price_at_sale: item.price 
+                // subtotal will be calculated on backend or can be sent if preferred
+            })),
+            discount_amount: parseFloat(discountAmountInput.value) || 0,
+            tax_amount: parseFloat(taxAmountInput.value) || 0,
+            payment_type: paymentTypeSelect.value,
+            transaction_id: paymentTypeSelect.value === 'card' ? document.getElementById('transactionId').value : null
+            // total_amount and final_amount will be calculated on backend
+        };
+
+        try {
+            // IMPORTANT: This API endpoint /pos/ui/api/process_sale needs to be created in pos_ui.py
+            const response = await fetch('/pos/ui/api/process_sale', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(saleData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            // flashMessage(`Sale processed successfully! Sale ID: ${result.sale_id}`, 'success'); // Optional: keep flash or remove if redirecting
+            cart = []; // Clear cart
+            renderCart();
+            updateTotals(); // Clear totals on UI
+            discountAmountInput.value = '0.00';
+            taxAmountInput.value = '0.00';
+            document.getElementById('transactionId').value = '';
+            paymentTypeSelect.value = 'cash';
+            transactionIdGroup.style.display = 'none';
+            
+            // Redirect to receipt page
+            window.location.href = `/pos/ui/receipt/${result.sale_id}`;
+
+        } catch (error) {
+            console.error("Failed to process sale:", error);
+            flashMessage(`Error processing sale: ${error.message}`, 'danger');
+        }
+    });
+    
+    // Simple flash message function (replace with more robust solution if needed)
+    function flashMessage(message, category = 'info') {
+        const flashDiv = document.createElement('div');
+        flashDiv.className = `alert alert-${category} alert-dismissible fade show mt-3`;
+        flashDiv.setAttribute('role', 'alert');
+        flashDiv.innerHTML = `
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        `;
+        // Assuming there's a container for flashes in base.html or here.
+        // For this example, let's prepend to the main content area.
+        document.querySelector('.container-fluid#posApp').prepend(flashDiv);
+        setTimeout(() => {
+            $(flashDiv).alert('close'); // Use Bootstrap's JS to close
+        }, 5000);
+    }
+
+});
+</script>
+
+<style>
+    /* Some basic styling for POS */
+    #productList .list-group-item, #currentSaleItems .list-group-item {
+        cursor: pointer;
+    }
+    .totals-section .form-control-plaintext {
+        font-size: 1.1em;
+    }
+    .totals-section .text-right, #paymentType {
+        text-align: right; /* For amounts */
+    }
+     #paymentType { /* specific for select */
+        text-align-last: right;
+    }
+</style>
+{% endblock %}

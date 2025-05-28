@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Categories - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Manage Categories</h1>
+    <a href="{{ url_for('category_bp.add_category_ui') }}" class="btn btn-primary">Add New Category</a>
+</div>
+
+<table class="table table-striped table-hover">
+    <thead class="thead-dark">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>No. of Products</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if categories %}
+            {% for category in categories %}
+            <tr>
+                <td>{{ category.id }}</td>
+                <td>{{ category.name }}</td>
+                <td>{{ category.description if category.description else '-' }}</td>
+                <td>{{ category.products.count() }}</td> {# Assumes lazy='dynamic' or similar for count #}
+                <td>
+                    <a href="{{ url_for('category_bp.edit_category_ui', category_id=category.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form action="{{ url_for('category_bp.delete_category_ui', category_id=category.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this category?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="5" class="text-center">No categories found.</td>
+            </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

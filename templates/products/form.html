@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+<form method="POST" action="{{ action_url }}" id="productForm">
+    {# Basic Product Information #}
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="name">Product Name</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ product.name if product else '' }}" required>
+        </div>
+        <div class="form-group col-md-6">
+            <label for="sku">SKU</label>
+            <input type="text" class="form-control" id="sku" name="sku" value="{{ product.sku if product else '' }}" required>
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="price">Price</label>
+            <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" value="{{ '%.2f'|format(product.price) if product and product.price is not none else '' }}" required>
+        </div>
+        <div class="form-group col-md-6">
+            <label for="quantity_on_hand">Quantity on Hand</label>
+            <input type="number" class="form-control" id="quantity_on_hand" name="quantity_on_hand" value="{{ product.quantity_on_hand if product else '0' }}" readonly>
+             <small class="form-text text-muted">Managed via Stock Movements (Reception, Sales, Adjustments).</small>
+        </div>
+    </div>
+
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="3">{{ product.description if product and product.description else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+        {# Price was moved up #}
+        <div class="form-group col-md-12"> {# Make category full width if price is moved #}
+            <label for="category_id">Category</label>
+            <select class="form-control" id="category_id" name="category_id">
+                <option value="">-- Select Category --</option>
+                {% for category in categories %}
+                    <option value="{{ category.id }}" {% if product and product.category_id == category.id %}selected{% endif %}>
+                        {{ category.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <hr>
+
+    {# Product Attributes - Managed by JavaScript #}
+    <div class="mb-3">
+        <h4>Attributes</h4>
+        <div id="attributesContainer">
+            {% if product and product.attributes %}
+                {% for pav in product.attributes %}
+                    <div class="form-row align-items-end mb-2 attribute-row">
+                        <div class="col-md-5">
+                            <label>Attribute Type</label>
+                            <select class="form-control attribute-select" name="attributes[][attribute_id]">
+                                {% for attr_type in available_attributes %}
+                                <option value="{{ attr_type.id }}" {% if pav.attribute_id == attr_type.id %}selected{% endif %}>{{ attr_type.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label>Value</label>
+                            <input type="text" class="form-control attribute-value" name="attributes[][value]" value="{{ pav.value }}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-danger remove-attribute">Remove</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-secondary mt-2" id="addAttributeBtn">Add Attribute</button>
+    </div>
+
+    <hr>
+
+    {# Product Images - Managed by JavaScript #}
+    <div class="mb-3">
+        <h4>Images</h4>
+        <div id="imagesContainer">
+            {% if product and product.images %}
+                {% for image in product.images %}
+                    <div class="form-row align-items-end mb-2 image-row">
+                        <div class="col-md-5">
+                            <label>Image URL</label>
+                            <input type="url" class="form-control image-url" name="images[][image_url]" value="{{ image.image_url }}" placeholder="https://example.com/image.png">
+                        </div>
+                        <div class="col-md-4">
+                            <label>Alt Text</label>
+                            <input type="text" class="form-control image-alt-text" name="images[][alt_text]" value="{{ image.alt_text }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label>Is Default?</label>
+                            <input type="checkbox" class="form-check-input image-is-default" name="images[][is_default]" {% if image.is_default %}checked{% endif %} style="width: auto; height: auto; margin-left: 10px;">
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-danger remove-image">Remove</button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-secondary mt-2" id="addImageBtn">Add Image</button>
+    </div>
+
+    <hr>
+
+    <button type="submit" class="btn btn-primary">Save Product</button>
+    <a href="{{ url_for('product_bp.list_products_ui') }}" class="btn btn-secondary">Cancel</a>
+</form>
+
+{# JavaScript for dynamic fields will be in a separate static file or inline here #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Attribute Management ---
+    const attributesContainer = document.getElementById('attributesContainer');
+    const addAttributeBtn = document.getElementById('addAttributeBtn');
+    const availableAttributesForJs = JSON.parse('{{ available_attributes_json|safe if available_attributes_json else "[]" }}');
+
+    function createAttributeRow(attributeId = '', value = '') {
+        const row = document.createElement('div');
+        row.className = 'form-row align-items-end mb-2 attribute-row';
+        
+        let optionsHtml = '<option value="">-- Select Attribute --</option>';
+        availableAttributesForJs.forEach(attr => {
+            optionsHtml += `<option value="${attr.id}" ${attributeId == attr.id ? 'selected' : ''}>${attr.name}</option>`;
+        });
+
+        row.innerHTML = `
+            <div class="col-md-5">
+                ${attributesContainer.children.length === 0 ? '<label>Attribute Type</label>' : ''}
+                <select class="form-control attribute-select">${optionsHtml}</select>
+            </div>
+            <div class="col-md-5">
+                ${attributesContainer.children.length === 0 ? '<label>Value</label>' : ''}
+                <input type="text" class="form-control attribute-value" value="${value}">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-danger remove-attribute">Remove</button>
+            </div>
+        `;
+        attributesContainer.appendChild(row);
+    }
+
+    addAttributeBtn.addEventListener('click', () => createAttributeRow());
+
+    attributesContainer.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-attribute')) {
+            e.target.closest('.attribute-row').remove();
+        }
+    });
+
+    // --- Image Management ---
+    const imagesContainer = document.getElementById('imagesContainer');
+    const addImageBtn = document.getElementById('addImageBtn');
+
+    function createImageRow(imageUrl = '', altText = '', isDefault = false) {
+        const row = document.createElement('div');
+        row.className = 'form-row align-items-end mb-2 image-row';
+        row.innerHTML = `
+            <div class="col-md-5">
+                ${imagesContainer.children.length === 0 ? '<label>Image URL</label>' : ''}
+                <input type="url" class="form-control image-url" value="${imageUrl}" placeholder="https://example.com/image.png">
+            </div>
+            <div class="col-md-4">
+                ${imagesContainer.children.length === 0 ? '<label>Alt Text</label>' : ''}
+                <input type="text" class="form-control image-alt-text" value="${altText}">
+            </div>
+            <div class="col-md-2">
+                ${imagesContainer.children.length === 0 ? '<label>Is Default?</label>' : ''}
+                <input type="checkbox" class="form-check-input image-is-default" ${isDefault ? 'checked' : ''} style="width: auto; height: auto; margin-left: 10px;">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-danger remove-image">Remove</button>
+            </div>
+        `;
+        imagesContainer.appendChild(row);
+    }
+
+    addImageBtn.addEventListener('click', () => createImageRow());
+
+    imagesContainer.addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-image')) {
+            e.target.closest('.image-row').remove();
+        }
+    });
+    
+    imagesContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('image-is-default') && e.target.checked) {
+            // Uncheck all other default image checkboxes
+            document.querySelectorAll('.image-is-default').forEach(checkbox => {
+                if (checkbox !== e.target) {
+                    checkbox.checked = false;
+                }
+            });
+        }
+    });
+
+    // --- Form Submission ---
+    const productForm = document.getElementById('productForm');
+    productForm.addEventListener('submit', function(e) {
+        // Collect attributes
+        document.querySelectorAll('#attributesContainer .attribute-row').forEach((row, index) => {
+            const select = row.querySelector('.attribute-select');
+            const input = row.querySelector('.attribute-value');
+            select.name = `attributes[${index}][attribute_id]`;
+            input.name = `attributes[${index}][value]`;
+        });
+
+        // Collect images
+        document.querySelectorAll('#imagesContainer .image-row').forEach((row, index) => {
+            row.querySelector('.image-url').name = `images[${index}][image_url]`;
+            row.querySelector('.image-alt-text').name = `images[${index}][alt_text]`;
+            const checkbox = row.querySelector('.image-is-default');
+            // Add hidden input for checkbox if unchecked, as unchecked boxes are not submitted
+            if (!checkbox.checked) {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = `images[${index}][is_default]`;
+                hidden.value = 'false'; // Or 'off', '0' depending on backend processing
+                checkbox.parentNode.insertBefore(hidden, checkbox.nextSibling);
+            }
+            checkbox.name = `images[${index}][is_default]`;
+            checkbox.value = 'true'; // Ensure 'true' is sent when checked
+        });
+    });
+});
+</script>
+{% endblock %}

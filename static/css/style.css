@@ -1,0 +1,13 @@
+/* Custom styles can go here */
+body {
+    padding-bottom: 60px; /* Height of the footer */
+}
+
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: #f5f5f5;
+    text-align: center;
+}
