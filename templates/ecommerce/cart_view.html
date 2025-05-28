@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5" id="cartViewApp">
+    <h1>{{ title }}</h1>
+
+    {% if cart and cart.items %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col" colspan="2">Product</th>
+                    <th scope="col" class="text-center">Price</th>
+                    <th scope="col" class="text-center">Quantity</th>
+                    <th scope="col" class="text-right">Subtotal</th>
+                    <th scope="col" class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart.items %}
+                <tr data-product-id="{{ item.product_id }}">
+                    <td style="width: 80px;">
+                        <img src="{{ item.image_url if item.image_url else url_for('static', filename='images/default_product.png') }}" 
+                             alt="{{ item.name }}" class="img-fluid rounded" style="max-height: 70px;">
+                    </td>
+                    <td>
+                        <a href="{{ url_for('ecommerce_bp.product_detail', product_id=item.product_id) }}">{{ item.name }}</a>
+                        <br><small class="text-muted">SKU: {{ item.sku }}</small>
+                    </td>
+                    <td class="text-center">${{ item.price }}</td>
+                    <td class="text-center" style="width: 130px;">
+                        <div class="input-group input-group-sm" style="width: 120px; margin: auto;">
+                            <div class="input-group-prepend">
+                                <button class="btn btn-outline-secondary quantity-change-btn" type="button" data-action="decrease">-</button>
+                            </div>
+                            <input type="number" class="form-control text-center quantity-input" value="{{ item.quantity }}" min="1" aria-label="Quantity">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary quantity-change-btn" type="button" data-action="increase">+</button>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-right item-subtotal">${{ item.subtotal }}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-danger remove-item-btn" title="Remove item">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right font-weight-bold">Cart Total:</td>
+                    <td class="text-right font-weight-bold" id="cartTotalAmount">${{ cart.cart_total_amount }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <a href="{{ url_for('ecommerce_bp.product_list') }}" class="btn btn-outline-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+                </svg>
+                Continue Shopping
+            </a>
+        </div>
+        <div class="col-md-6 text-right">
+            <button class="btn btn-info mr-2" id="updateCartBtn" style="display: none;">Update Cart</button> {# Hidden initially #}
+            <a href="{{ url_for('ecommerce_bp.checkout') }}" class="btn btn-success btn-lg" id="checkoutBtnRealLink">
+                Proceed to Checkout
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <p class="lead">Your shopping cart is empty.</p>
+        <a href="{{ url_for('ecommerce_bp.product_list') }}" class="btn btn-primary">Start Shopping</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const cartViewApp = document.getElementById('cartViewApp');
+    const updateCartBtn = document.getElementById('updateCartBtn');
+    let quantitiesChanged = false;
+
+    function showUpdateCartButton() {
+        if (updateCartBtn) {
+            updateCartBtn.style.display = 'inline-block';
+            quantitiesChanged = true;
+        }
+    }
+
+    cartViewApp.addEventListener('click', async function(e) {
+        const target = e.target.closest('.quantity-change-btn, .remove-item-btn');
+        if (!target) return;
+
+        const productRow = target.closest('tr');
+        const productId = productRow.dataset.productId;
+        const quantityInput = productRow.querySelector('.quantity-input');
+
+        if (target.classList.contains('quantity-change-btn')) {
+            let currentQuantity = parseInt(quantityInput.value);
+            if (target.dataset.action === 'increase') {
+                currentQuantity++;
+            } else if (target.dataset.action === 'decrease' && currentQuantity > 1) {
+                currentQuantity--;
+            } else if (target.dataset.action === 'decrease' && currentQuantity <= 1) {
+                // Optionally, confirm removal or just do nothing/set to 1
+                // For now, we'll let it be handled by remove button or explicit update to 0
+                return; 
+            }
+            quantityInput.value = currentQuantity;
+            showUpdateCartButton();
+        } else if (target.classList.contains('remove-item-btn')) {
+            if (confirm('Are you sure you want to remove this item from your cart?')) {
+                try {
+                    const response = await fetch(`/shop/api/cart/remove/${productId}`, { method: 'POST' });
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload page to reflect changes or update DOM dynamically
+                        window.location.reload(); 
+                    } else {
+                        showCartFlashMessage(data.message || 'Error removing item.', 'danger');
+                    }
+                } catch (error) {
+                    showCartFlashMessage('Error removing item: ' + error, 'danger');
+                }
+            }
+        }
+    });
+
+    if (updateCartBtn) {
+        updateCartBtn.addEventListener('click', async function() {
+            if (!quantitiesChanged) return;
+
+            const updates = [];
+            document.querySelectorAll('#cartViewApp tbody tr').forEach(row => {
+                const productId = row.dataset.productId;
+                const quantity = row.querySelector('.quantity-input').value;
+                updates.push({ product_id: productId, quantity: parseInt(quantity) });
+            });
+            
+            // This assumes a batch update endpoint, or individual updates
+            // For simplicity, let's assume individual updates for now if a batch one isn't ready
+            let allSucceeded = true;
+            for (const item of updates) {
+                if (item.quantity <= 0) { // Handle removal via quantity 0
+                     try {
+                        const response = await fetch(`/shop/api/cart/remove/${item.product_id}`, { method: 'POST' });
+                        const data = await response.json();
+                        if (!data.success) allSucceeded = false;
+                    } catch (error) { allSucceeded = false; }
+                } else {
+                    try {
+                        const response = await fetch(`/shop/api/cart/update/${item.product_id}`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ quantity: item.quantity })
+                        });
+                        const data = await response.json();
+                        if (!data.success) allSucceeded = false;
+                    } catch (error) { allSucceeded = false; }
+                }
+            }
+
+            if (allSucceeded) {
+                showCartFlashMessage('Cart updated successfully!', 'success');
+                // updateCartBtn.style.display = 'none'; // Hide button again
+                // quantitiesChanged = false;
+                window.location.reload(); // Easiest way to reflect all changes
+            } else {
+                showCartFlashMessage('Some items could not be updated. Please review your cart.', 'warning');
+                window.location.reload(); // Reload to show server-side state
+            }
+        });
+    }
+    
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    quantityInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if(parseInt(this.value) < 0) this.value = 0; // Prevent negative numbers manually
+            showUpdateCartButton();
+        });
+         input.addEventListener('keyup', function() { // Also on keyup for immediate feedback
+            if(parseInt(this.value) < 0) this.value = 0;
+            showUpdateCartButton();
+        });
+    });
+
+    // document.getElementById('checkoutBtn')?.addEventListener('click', function(e){ // Old placeholder
+    //     e.preventDefault();
+    //     showCartFlashMessage('Checkout functionality is not yet implemented.', 'info');
+    //     // Future: window.location.href = '/shop/checkout';
+    // });
+    
+    function showCartFlashMessage(message, category = 'info') {
+        const flashContainer = document.getElementById('cartViewApp');
+        if (!flashContainer) return;
+
+        const flashDiv = document.createElement('div');
+        flashDiv.className = `alert alert-${category} alert-dismissible fade show mt-3`;
+        flashDiv.setAttribute('role', 'alert');
+        flashDiv.innerHTML = `
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        `;
+        flashContainer.insertBefore(flashDiv, flashContainer.firstChild);
+        
+        setTimeout(() => {
+            if (flashDiv.parentNode && typeof $(flashDiv).alert === 'function') {
+                 $(flashDiv).alert('close');
+            } else if (flashDiv.parentNode) {
+                flashDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

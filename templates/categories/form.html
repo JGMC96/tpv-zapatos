@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+<form method="POST" action="{{ action_url }}">
+    <div class="form-group">
+        <label for="name">Category Name</label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ category.name if category else '' }}" required>
+    </div>
+    <div class="form-group">
+        <label for="description">Description (Optional)</label>
+        <textarea class="form-control" id="description" name="description" rows="3">{{ category.description if category and category.description else '' }}</textarea>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">Save Category</button>
+    <a href="{{ url_for('category_bp.list_categories_ui') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

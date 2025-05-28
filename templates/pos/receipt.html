@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background-color: #f8f9fa; /* Light gray background for contrast */
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+        .receipt-container {
+            max-width: 600px; /* Typical receipt width */
+            margin: auto;
+            background-color: #fff;
+            padding: 30px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .receipt-header h2 {
+            margin-bottom: 5px;
+        }
+        .receipt-header p {
+            margin-bottom: 2px;
+            font-size: 0.9em;
+        }
+        .receipt-items table {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .receipt-items th, .receipt-items td {
+            padding: 8px 0; /* More compact padding */
+            border-bottom: 1px dashed #ccc; /* Dashed lines for items */
+        }
+        .receipt-items th:last-child, .receipt-items td:last-child {
+            text-align: right;
+        }
+        .receipt-totals table {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .receipt-totals td {
+            padding: 5px 0;
+        }
+        .receipt-totals .total-label {
+            font-weight: bold;
+        }
+        .receipt-totals .final-amount {
+            font-size: 1.2em;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+        }
+        .receipt-footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+        .no-print {
+            margin-top: 30px;
+            text-align: center;
+        }
+        @media print {
+            body {
+                background-color: #fff; /* White background for printing */
+                padding-top: 0;
+            }
+            .receipt-container {
+                max-width: 100%;
+                margin: 0;
+                border: none;
+                box-shadow: none;
+            }
+            .no-print {
+                display: none;
+            }
+            /* Ensure links are not blue and underlined when printing */
+            a, a:visited {
+                color: #000 !important; 
+                text-decoration: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <div class="receipt-header">
+            <h2>{{ shop_details.name if shop_details else "Your Store Name" }}</h2>
+            {% if shop_details %}
+            <p>{{ shop_details.address }}</p>
+            <p>{{ shop_details.phone }}</p>
+            <p><a href="http://{{ shop_details.website }}" target="_blank">{{ shop_details.website }}</a></p>
+            {% endif %}
+            <hr>
+            <p><strong>Receipt</strong></p>
+            <p>Sale ID: #{{ sale.id }}</p>
+            <p>Date: {{ sale.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+        </div>
+
+        <div class="receipt-items">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in sale.items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ "%.2f"|format(item.price_at_sale) }}</td>
+                        <td>${{ "%.2f"|format(item.subtotal) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="receipt-totals">
+            <table>
+                <tr>
+                    <td class="total-label">Subtotal:</td>
+                    <td class="text-right">${{ "%.2f"|format(sale.total_amount) }}</td>
+                </tr>
+                {% if sale.discount_amount > 0 %}
+                <tr>
+                    <td class="total-label">Discount:</td>
+                    <td class="text-right">-${{ "%.2f"|format(sale.discount_amount) }}</td>
+                </tr>
+                {% endif %}
+                {% if sale.tax_amount > 0 %}
+                <tr>
+                    <td class="total-label">Tax:</td>
+                    <td class="text-right">+${{ "%.2f"|format(sale.tax_amount) }}</td>
+                </tr>
+                {% endif %}
+                <tr class="final-amount">
+                    <td class="total-label">Total:</td>
+                    <td class="text-right">${{ "%.2f"|format(sale.final_amount) }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="payment-details mt-4">
+            <p><strong>Payment Method:</strong> {{ sale.payment_type|capitalize }}</p>
+            {% if sale.payment_type == 'card' and sale.transaction_id %}
+            <p><strong>Transaction ID:</strong> {{ sale.transaction_id }}</p>
+            {% endif %}
+        </div>
+
+        <div class="receipt-footer">
+            <p>Thank you for your purchase!</p>
+        </div>
+
+        <div class="no-print">
+            <button class="btn btn-primary" onclick="window.print();">Print Receipt</button>
+            <a href="{{ url_for('pos_bp.index') }}" class="btn btn-secondary">Start New Sale</a>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

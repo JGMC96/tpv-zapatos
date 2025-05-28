@@ -1,0 +1,49 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+</div>
+
+<form method="POST" action="{{ url_for('admin_bp.new_stock_reception') }}">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="product_id">Product</label>
+                <select class="form-control" id="product_id" name="product_id" required>
+                    <option value="">-- Select Product --</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}">{{ product.name }} (SKU: {{ product.sku }}, Current QOH: {{ product.quantity_on_hand }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="change_quantity">Quantity Received</label>
+                <input type="number" class="form-control" id="change_quantity" name="change_quantity" min="1" required>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label for="reason_code">Reason Code</label>
+                <select class="form-control" id="reason_code" name="reason_code">
+                    <option value="RECEPTION_PURCHASE_ORDER" selected>Reception (Purchase Order)</option>
+                    {% for reason in reason_choices %}
+                        {% if reason != 'RECEPTION_PURCHASE_ORDER' and reason != 'SALE' %} {# Filter out some defaults if needed #}
+                        <option value="{{ reason }}">{{ reason.replace('_', ' ')|capitalize }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes (Optional)</label>
+                <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn btn-primary mt-3">Record Stock Reception</button>
+    <a href="{{ url_for('admin_bp.list_stock_movements') }}" class="btn btn-secondary mt-3">Cancel / View Log</a>
+</form>
+{% endblock %}
